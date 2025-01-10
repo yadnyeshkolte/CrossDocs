@@ -11,12 +11,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.BaselineShift
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.intellij.markdown.*
@@ -137,6 +140,28 @@ fun DropdownMenuButton(label: String, options: List<String>, onOptionClick: ((St
         }
     }
 }
+@Composable
+private fun processTextFormatting(text: String): String {
+    // First, apply strikethrough (~~text~~)
+    var formattedText = text.replace("~~(.*?)~~".toRegex()) { matchResult ->
+        val strikethroughText = matchResult.groupValues[1]
+        "<s>$strikethroughText</s>"  // Wrap in HTML <s> tag for visual representation
+    }
+
+    // Apply subscript (H~2~O)
+    formattedText = formattedText.replace("~(.*?)~".toRegex()) { matchResult ->
+        val subscriptText = matchResult.groupValues[1]
+        "<sub>$subscriptText</sub>"  // Wrap in HTML <sub> tag
+    }
+
+    // Apply superscript (X^2^)
+    formattedText = formattedText.replace("\\^(.*?)\\^".toRegex()) { matchResult ->
+        val superscriptText = matchResult.groupValues[1]
+        "<sup>$superscriptText</sup>"  // Wrap in HTML <sup> tag
+    }
+
+    return formattedText  // Return the formatted text
+}
 
 @Composable
 fun MarkdownRenderer(markdownText: String, modifier: Modifier = Modifier) {
@@ -166,6 +191,7 @@ private fun renderNode(node: ASTNode, originalText: String) {
                                 append(text)
                                 pop()
                             }
+
                             MarkdownElementTypes.STRONG -> {
                                 pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
                                 // Trim ** or __ from the text
@@ -178,31 +204,28 @@ private fun renderNode(node: ASTNode, originalText: String) {
                             }
                             // Inline code using `code`
                             MarkdownElementTypes.CODE_SPAN -> {
-                                pushStyle(SpanStyle(
-                                    fontFamily = FontFamily.Monospace,
-                                    background = Color.LightGray
-                                ))
+                                pushStyle(
+                                    SpanStyle(
+                                        fontFamily = FontFamily.Monospace,
+                                        background = Color.LightGray
+                                    )
+                                )
                                 append(child.getTextInNode(originalText).toString().trim('`'))
                                 pop()
                             }
                             // Links using [text](url)
 
-
-
-
-
-
-                            else -> append(child.getTextInNode(originalText).toString())
+                            else -> {
+                                val text = child.getTextInNode(originalText).toString()
+                                val formattedText = processTextFormatting(text)
+                                append(formattedText)
+                            }
                         }
                     }
                 }
             )
             Spacer(modifier = Modifier.height(8.dp))
         }
-
-
-
-
         // LISTS - Handles both ordered (1. 2. 3.) and unordered (• • •) lists
         MarkdownElementTypes.UNORDERED_LIST -> {
             node.children.forEachIndexed { index, listItem ->  // Using `forEachIndexed` for ordered list numbering
