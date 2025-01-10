@@ -1,6 +1,5 @@
 package com.yadnyeshkolte.crossdocs
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -11,7 +10,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -22,13 +20,27 @@ import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yadnyeshkolte.crossdocs.chat.ChatSection
+import com.yadnyeshkolte.crossdocs.gemini.GeminiService
+import kotlinx.coroutines.launch
 import org.intellij.markdown.*
 import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.ast.getTextInNode
 import org.intellij.markdown.flavours.commonmark.CommonMarkFlavourDescriptor
 import org.intellij.markdown.parser.MarkdownParser
-
-
+import com.yadnyeshkolte.crossdocs.chat.ChatMessage
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.Checkbox
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.Surface
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextAlign
+class CustomMarkdownElementType(name: String) : IElementType(name)
 
 
 @Composable
@@ -37,11 +49,25 @@ fun App() {
         var showContent by remember { mutableStateOf(false) }
         var markdownText by remember { mutableStateOf("") }
         var renderedHtml by remember { mutableStateOf("") }
+
+        // Chat state
+        var currentPrompt by remember { mutableStateOf("") }
+        var messages by remember { mutableStateOf(listOf<ChatMessage>()) }
+        val geminiService = remember { GeminiService() }
+        val scope = rememberCoroutineScope()
+
         val uriHandler = LocalUriHandler.current
         val normalTextStyle = TextStyle(
             fontSize = 14.sp,  // or any smaller size you prefer
             fontWeight = FontWeight.Normal
         )
+
+        DisposableEffect(Unit) {
+            onDispose {
+                geminiService.dispose()
+            }
+        }
+
 
         Column(
             modifier = Modifier.fillMaxWidth()
@@ -112,6 +138,31 @@ fun App() {
                         )
                     }
                 }
+
+                // Chat Section (60% of height)
+                ChatSection(
+                    modifier = Modifier
+                        .weight(0.6f)
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    messages = messages,
+                    onSendMessage = { prompt ->
+                        scope.launch {
+                            // Add user message
+                            messages = messages + ChatMessage(
+                                content = prompt,
+                                isUser = true
+                            )
+
+                            // Get response from Gemini
+                            val response = geminiService.generateResponse(prompt)
+                            messages = messages + ChatMessage(
+                                content = response,
+                                isUser = false
+                            )
+                        }
+                    }
+                )
             }
         }
     }
@@ -140,27 +191,79 @@ fun DropdownMenuButton(label: String, options: List<String>, onOptionClick: ((St
         }
     }
 }
+
+
 @Composable
-private fun processTextFormatting(text: String): String {
-    // First, apply strikethrough (~~text~~)
-    var formattedText = text.replace("~~(.*?)~~".toRegex()) { matchResult ->
-        val strikethroughText = matchResult.groupValues[1]
-        "<s>$strikethroughText</s>"  // Wrap in HTML <s> tag for visual representation
+private fun processTextFormatting(text: String) = buildAnnotatedString {
+    var currentIndex = 0
+
+    // Handle strikethrough (~~text~~)
+    val strikethroughRegex = "~~(.*?)~~".toRegex()
+    strikethroughRegex.findAll(text).forEach { matchResult ->
+        // Append any text before the match
+        append(text.substring(currentIndex, matchResult.range.first))
+
+        // Add the strikethrough text with style
+        pushStyle(SpanStyle(textDecoration = TextDecoration.LineThrough))
+        append(matchResult.groupValues[1])
+        pop()
+
+        currentIndex = matchResult.range.last + 1
     }
 
-    // Apply subscript (H~2~O)
-    formattedText = formattedText.replace("~(.*?)~".toRegex()) { matchResult ->
-        val subscriptText = matchResult.groupValues[1]
-        "<sub>$subscriptText</sub>"  // Wrap in HTML <sub> tag
+    // Handle subscript (H~2~O)
+    val subscriptRegex = "~(.*?)~".toRegex()
+    subscriptRegex.findAll(text.substring(currentIndex)).forEach { matchResult ->
+        // Append any text before the match
+        append(text.substring(currentIndex, currentIndex + matchResult.range.first))
+
+        // Add the subscript text with style
+        pushStyle(SpanStyle(
+            baselineShift = BaselineShift.Subscript,
+            fontSize = (LocalTextStyle.current.fontSize.value * 0.75).sp
+        ))
+        append(matchResult.groupValues[1])
+        pop()
+
+        currentIndex += matchResult.range.last + 1
     }
 
-    // Apply superscript (X^2^)
-    formattedText = formattedText.replace("\\^(.*?)\\^".toRegex()) { matchResult ->
-        val superscriptText = matchResult.groupValues[1]
-        "<sup>$superscriptText</sup>"  // Wrap in HTML <sup> tag
+    // Handle superscript (X^2^)
+    val superscriptRegex = "\\^(.*?)\\^".toRegex()
+    superscriptRegex.findAll(text.substring(currentIndex)).forEach { matchResult ->
+        // Append any text before the match
+        append(text.substring(currentIndex, currentIndex + matchResult.range.first))
+
+        // Add the superscript text with style
+        pushStyle(SpanStyle(
+            baselineShift = BaselineShift.Superscript,
+            fontSize = (LocalTextStyle.current.fontSize.value * 0.75).sp
+        ))
+        append(matchResult.groupValues[1])
+        pop()
+
+        currentIndex += matchResult.range.last + 1
     }
 
-    return formattedText  // Return the formatted text
+    val highlightRegex = "==(.*?)==".toRegex()
+    highlightRegex.findAll(text.substring(currentIndex)).forEach { matchResult ->
+        append(text.substring(currentIndex, currentIndex + matchResult.range.first))
+        pushStyle(SpanStyle(
+            background = MaterialTheme.colors.primary.copy(alpha = 0.3f)  // Highlight color
+        ))
+        append(matchResult.groupValues[1])
+        pop()
+        currentIndex += matchResult.range.last + 1
+    }
+
+
+
+
+
+        // Append any remaining text
+    if (currentIndex < text.length) {
+        append(text.substring(currentIndex))
+    }
 }
 
 @Composable
@@ -185,40 +288,29 @@ private fun renderNode(node: ASTNode, originalText: String) {
                             // Italic text using *text* or _text_
                             MarkdownElementTypes.EMPH -> {
                                 pushStyle(SpanStyle(fontStyle = FontStyle.Italic))
-                                // Trim * or _ from the text
-                                val text = child.getTextInNode(originalText).toString()
-                                    .trim('*', '_')
-                                append(text)
+                                append(child.getTextInNode(originalText).toString().trim('*', '_'))
                                 pop()
                             }
-
                             MarkdownElementTypes.STRONG -> {
                                 pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
-                                // Trim ** or __ from the text
-                                val text = child.getTextInNode(originalText).toString()
+                                append(child.getTextInNode(originalText).toString()
                                     .trim('*', '_')
                                     .trimStart('*', '_')
-                                    .trimEnd('*', '_')
-                                append(text)
+                                    .trimEnd('*', '_'))
                                 pop()
                             }
-                            // Inline code using `code`
                             MarkdownElementTypes.CODE_SPAN -> {
-                                pushStyle(
-                                    SpanStyle(
-                                        fontFamily = FontFamily.Monospace,
-                                        background = Color.LightGray
-                                    )
-                                )
+                                pushStyle(SpanStyle(
+                                    fontFamily = FontFamily.Monospace,
+                                    background = Color.LightGray
+                                ))
                                 append(child.getTextInNode(originalText).toString().trim('`'))
                                 pop()
                             }
-                            // Links using [text](url)
-
                             else -> {
                                 val text = child.getTextInNode(originalText).toString()
-                                val formattedText = processTextFormatting(text)
-                                append(formattedText)
+                                // Use the new processTextFormatting function
+                                append(processTextFormatting(text))
                             }
                         }
                     }
@@ -263,8 +355,6 @@ private fun renderNode(node: ASTNode, originalText: String) {
                 }
             }
         }
-
-
         // HEADERS - Handles # and ## headers
         MarkdownElementTypes.ATX_1 -> {  // # Header 1
             Text(
@@ -331,27 +421,6 @@ private fun renderNode(node: ASTNode, originalText: String) {
             )
             Spacer(modifier = Modifier.height(4.dp))
         }
-
-        // CODE BLOCKS - Handles ```code blocks```
-        MarkdownElementTypes.CODE_BLOCK -> {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-                    .background(
-                        color = Color.LightGray,
-                        shape = RoundedCornerShape(4.dp)
-                    )
-                    .padding(8.dp)
-            ) {
-                Text(
-                    text = node.getTextInNode(originalText).toString().trim(),
-                    fontFamily = FontFamily.Monospace
-                )
-            }
-        }
-
-        // Recursively process any other nodes
         else -> {
             node.children.forEach { child ->
                 renderNode(child, originalText)
@@ -359,3 +428,7 @@ private fun renderNode(node: ASTNode, originalText: String) {
         }
     }
 }
+
+
+
+

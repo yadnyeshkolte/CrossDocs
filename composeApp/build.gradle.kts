@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    kotlin("plugin.serialization")
 }
 
 kotlin {
@@ -70,6 +71,13 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtime.compose)
             implementation(projects.shared)
             implementation("org.jetbrains:markdown:0.3.5")
+            implementation("com.google.cloud:google-cloud-aiplatform:3.29.0")
+            implementation("io.ktor:ktor-client-core:2.3.7")
+            implementation("io.ktor:ktor-client-cio:2.3.7")
+            implementation("io.ktor:ktor-client-content-negotiation:2.3.7")
+            implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+            implementation("org.slf4j:slf4j-simple:2.0.9")
 
         }
         desktopMain.dependencies {
