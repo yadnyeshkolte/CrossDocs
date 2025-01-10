@@ -23,7 +23,6 @@ import kotlinx.coroutines.launch
 data class ChatMessage(
     val content: String,
     val isUser: Boolean,
-    val timestamp: Long = System.currentTimeMillis()
 )
 
 @Composable

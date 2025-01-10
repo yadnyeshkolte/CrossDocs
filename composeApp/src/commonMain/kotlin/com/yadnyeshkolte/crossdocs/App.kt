@@ -31,16 +31,21 @@ import org.intellij.markdown.parser.MarkdownParser
 import com.yadnyeshkolte.crossdocs.chat.ChatMessage
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.Checkbox
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.Surface
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.text.style.TextAlign
-class CustomMarkdownElementType(name: String) : IElementType(name)
+import com.yadnyeshkolte.crossdocs.parser.MarkdownTableParser
+import com.yadnyeshkolte.crossdocs.ui.components.MarkdownTable
+import androidx.compose.material.Checkbox
+import androidx.compose.material.CheckboxDefaults
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.Checkbox
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.yadnyeshkolte.crossdocs.parser.parseTaskList
+import com.yadnyeshkolte.crossdocs.ui.components.TaskList
 
 
 @Composable
@@ -55,6 +60,7 @@ fun App() {
         var messages by remember { mutableStateOf(listOf<ChatMessage>()) }
         val geminiService = remember { GeminiService() }
         val scope = rememberCoroutineScope()
+
 
         val uriHandler = LocalUriHandler.current
         val normalTextStyle = TextStyle(
@@ -196,7 +202,6 @@ fun DropdownMenuButton(label: String, options: List<String>, onOptionClick: ((St
 @Composable
 private fun processTextFormatting(text: String) = buildAnnotatedString {
     var currentIndex = 0
-
     // Handle strikethrough (~~text~~)
     val strikethroughRegex = "~~(.*?)~~".toRegex()
     strikethroughRegex.findAll(text).forEach { matchResult ->
@@ -256,15 +261,38 @@ private fun processTextFormatting(text: String) = buildAnnotatedString {
         currentIndex += matchResult.range.last + 1
     }
 
-
-
-
-
         // Append any remaining text
     if (currentIndex < text.length) {
         append(text.substring(currentIndex))
     }
 }
+
+@Composable
+private fun TaskListItem(text: String, isChecked: Boolean) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 4.dp)
+    ) {
+        Checkbox(
+            checked = isChecked,
+            onCheckedChange = null, // Read-only checkbox
+            colors = CheckboxDefaults.colors(
+                checkedColor = Color(0xFF7F52FF),
+                uncheckedColor = Color.Gray
+            ),
+            modifier = Modifier.padding(end = 8.dp)
+        )
+        Text(
+            text = text,
+            style = TextStyle(
+                fontSize = 14.sp,
+                textDecoration = if (isChecked) TextDecoration.LineThrough else TextDecoration.None,
+                color = if (isChecked) Color.Gray else Color.Black
+            )
+        )
+    }
+}
+
 
 @Composable
 fun MarkdownRenderer(markdownText: String, modifier: Modifier = Modifier) {
@@ -277,10 +305,27 @@ fun MarkdownRenderer(markdownText: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun renderNode(node: ASTNode, originalText: String) {
+private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
+    val normalTextStyle = TextStyle(
+        fontSize = 14.sp, // or any size you prefer
+        fontWeight = FontWeight.Normal
+    )
+
     when (node.type) {
         // PARAGRAPHS - Handles basic text with inline formatting
         MarkdownElementTypes.PARAGRAPH -> {
+
+            val text = node.getTextInNode(originalText).toString()
+
+            // Check if this contains task list items
+            if (text.trim().startsWith("- [")) {
+                val tasks = parseTaskList(text)
+                if (tasks.isNotEmpty()) {
+                    TaskList(tasks)
+                    return
+                }
+            }
+
             Text(
                 text = buildAnnotatedString {
                     node.children.forEach { child ->
@@ -308,9 +353,7 @@ private fun renderNode(node: ASTNode, originalText: String) {
                                 pop()
                             }
                             else -> {
-                                val text = child.getTextInNode(originalText).toString()
-                                // Use the new processTextFormatting function
-                                append(processTextFormatting(text))
+                                append(processTextFormatting(child.getTextInNode(originalText).toString()))
                             }
                         }
                     }
@@ -421,14 +464,51 @@ private fun renderNode(node: ASTNode, originalText: String) {
             )
             Spacer(modifier = Modifier.height(4.dp))
         }
+        // Blockquote: > blockquote Work remaining about left side border
+        MarkdownElementTypes.BLOCK_QUOTE -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .border(
+                        width = 4.dp,
+                        color = Color(0xFF7F52FF),
+                        shape = RoundedCornerShape(4.dp)
+                    )
+                    .padding(8.dp)
+            ) {
+                Column {
+                    node.children.forEach { child ->
+                        renderNode(child, originalText)
+                    }
+                }
+            }
+        }
+
+
         else -> {
+            // Try to parse as table if the text starts with |
+            val nodeText = node.getTextInNode(originalText).toString()
+            if (nodeText.trimStart().startsWith("|")) {
+                val tableParser = MarkdownTableParser()
+                tableParser.parseTable(nodeText)?.let { tableData ->
+                    MarkdownTable(tableData)
+                    return
+                }
+            }
+            else{
+                node.children.forEach { child ->
+                    renderNode(child, originalText)
+                }
+            }
+        }
+        /*else -> {
             node.children.forEach { child ->
                 renderNode(child, originalText)
             }
-        }
+        }*/
     }
 }
-
 
 
 
