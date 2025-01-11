@@ -301,6 +301,8 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
         MarkdownElementTypes.PARAGRAPH -> {
             val text = node.getTextInNode(originalText).toString()
 
+            // Check if this is an image
+
             // Parse definitions if present
             val definitions = DefinitionParser.parseDefinitions(text)
             if (definitions.isNotEmpty()) {
@@ -605,7 +607,12 @@ private fun processTextWithFormatting(text: String, spanBuilder: AnnotatedString
         FormattingRule(
             "==(.*?)==".toRegex(),
             { SpanStyle(background = Color(0xFF7F52FF).copy(alpha = 0.3f)) }
+        ),
+        FormattingRule(
+            "\\[(.*?)\\]\\((.*?)\\)".toRegex(),  // Matches [text](url) pattern
+            { SpanStyle(color = Color(0xFF7F52FF)) }    // Makes the text yellow
         )
+
     )
 
     while (currentText.isNotEmpty()) {
