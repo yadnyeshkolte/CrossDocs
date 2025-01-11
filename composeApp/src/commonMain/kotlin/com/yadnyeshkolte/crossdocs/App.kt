@@ -42,9 +42,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Checkbox
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.withStyle
+import com.yadnyeshkolte.crossdocs.parser.DefinitionItem
+import com.yadnyeshkolte.crossdocs.parser.DefinitionParser
+import com.yadnyeshkolte.crossdocs.parser.EmojiParser
 import com.yadnyeshkolte.crossdocs.parser.TaskListParser
 import com.yadnyeshkolte.crossdocs.ui.components.CodeBlock
+import com.yadnyeshkolte.crossdocs.ui.components.Definition
 import com.yadnyeshkolte.crossdocs.ui.components.RichTextWithEmoji
 import com.yadnyeshkolte.crossdocs.ui.components.TaskList
 import org.intellij.markdown.MarkdownElementTypes
@@ -269,33 +274,11 @@ private fun processTextFormatting(text: String) = buildAnnotatedString {
     }
 }
 
-@Composable
-private fun TaskListItem(text: String, isChecked: Boolean) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(vertical = 4.dp)
-    ) {
-        Checkbox(
-            checked = isChecked,
-            onCheckedChange = null,
-            colors = CheckboxDefaults.colors(
-                checkedColor = Color(0xFF7F52FF),
-                uncheckedColor = Color(0xFF7F52FF).copy(alpha = 0.6f),
-                checkmarkColor = Color.White
-            ),
-            modifier = Modifier.padding(end = 8.dp)
-        )
-        Text(
-            text = text,
-            style = TextStyle(
-                fontSize = 14.sp,
-                textDecoration = if (isChecked) TextDecoration.LineThrough else TextDecoration.None,
-                color = if (isChecked) Color.Gray else Color.Black
-            )
-        )
-    }
-}
 
+sealed class TextSegment {
+    data class Regular(val content: String) : TextSegment()
+    data class Table(val content: String) : TextSegment()
+}
 
 @Composable
 fun MarkdownRenderer(markdownText: String, modifier: Modifier = Modifier) {
@@ -310,144 +293,54 @@ fun MarkdownRenderer(markdownText: String, modifier: Modifier = Modifier) {
 @Composable
 private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
     val normalTextStyle = TextStyle(
-        fontSize = 14.sp, // or any size you prefer
+        fontSize = 14.sp,
         fontWeight = FontWeight.Normal
     )
 
     when (node.type) {
-        // PARAGRAPHS - Handles basic text with inline formatting
         MarkdownElementTypes.PARAGRAPH -> {
-
-            // Check for task list syntax
             val text = node.getTextInNode(originalText).toString()
 
-            // Check for task list syntax
-            val taskListItems = TaskListParser.parseTaskList(text)
-            if (taskListItems != null) {
-                TaskList(taskListItems)
-                Spacer(modifier = Modifier.height(8.dp))
+            // Parse definitions if present
+            val definitions = DefinitionParser.parseDefinitions(text)
+            if (definitions.isNotEmpty()) {
+                definitions.forEach { definition ->
+                    Definition(
+                        item = DefinitionItem(
+                            term = EmojiParser.parseEmojis(definition.term),
+                            definition = EmojiParser.parseEmojis(definition.definition)
+                        )
+                    )
+                }
             } else {
+                // Split the text into segments (table and non-table parts)
+                val segments = splitTextAndTables(text)
 
-                Text(
-                    text = buildAnnotatedString {
-                        var currentText = text
+                segments.forEach { segment ->
+                    when (segment) {
+                        is TextSegment.Regular -> {
+                            if (segment.content.isNotEmpty()) {
+                                // Process emojis and formatting only once
+                                val processedText = EmojiParser.parseEmojis(segment.content)
 
-                        // Process Bold (**text**)
-                        val boldRegex = "\\*\\*(.*?)\\*\\*".toRegex()
-                        boldRegex.findAll(currentText).forEach { result ->
-                            val startIndex = result.range.first
-                            val endIndex = result.range.last + 1
-
-                            append(currentText.substring(0, startIndex))
-                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                                append(result.groupValues[1])
-                            }
-                            currentText = currentText.substring(endIndex)
-                        }
-
-                        // Process Italic (*text*)
-                        val italicRegex = "\\*(.*?)\\*".toRegex()
-                        italicRegex.findAll(currentText).forEach { result ->
-                            val startIndex = result.range.first
-                            val endIndex = result.range.last + 1
-
-                            append(currentText.substring(0, startIndex))
-                            withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
-                                append(result.groupValues[1])
-                            }
-                            currentText = currentText.substring(endIndex)
-                        }
-
-                        // Process Code (`text`)
-                        val codeRegex = "`(.*?)`".toRegex()
-                        codeRegex.findAll(currentText).forEach { result ->
-                            val startIndex = result.range.first
-                            val endIndex = result.range.last + 1
-
-                            append(currentText.substring(0, startIndex))
-                            withStyle(
-                                SpanStyle(
-                                    fontFamily = FontFamily.Monospace,
-                                    background = Color.Gray.copy(alpha = 0.3f)
+                                Text(
+                                    text = buildAnnotatedString {
+                                        processTextWithFormatting(processedText, this)
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
                                 )
-                            ) {
-                                append(result.groupValues[1])
+                                Spacer(modifier = Modifier.height(8.dp))
                             }
-                            currentText = currentText.substring(endIndex)
                         }
-
-                        // Process Strikethrough (~~text~~)
-                        val strikethroughRegex = "~~(.*?)~~".toRegex()
-                        strikethroughRegex.findAll(currentText).forEach { result ->
-                            val startIndex = result.range.first
-                            val endIndex = result.range.last + 1
-
-                            append(currentText.substring(0, startIndex))
-                            withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) {
-                                append(result.groupValues[1])
+                        is TextSegment.Table -> {
+                            val tableParser = MarkdownTableParser()
+                            tableParser.parseTable(segment.content)?.let { tableData ->
+                                MarkdownTable(tableData)
+                                Spacer(modifier = Modifier.height(8.dp))
                             }
-                            currentText = currentText.substring(endIndex)
                         }
-
-                        // Process Subscript (~text~)
-                        val subscriptRegex = "~(.*?)~".toRegex()
-                        subscriptRegex.findAll(currentText).forEach { result ->
-                            val startIndex = result.range.first
-                            val endIndex = result.range.last + 1
-
-                            append(currentText.substring(0, startIndex))
-                            withStyle(
-                                SpanStyle(
-                                    baselineShift = BaselineShift.Subscript,
-                                    fontSize = (14 * 0.75).sp
-                                )
-                            ) {
-                                append(result.groupValues[1])
-                            }
-                            currentText = currentText.substring(endIndex)
-                        }
-
-                        // Process Superscript (^text^)
-                        val superscriptRegex = "\\^(.*?)\\^".toRegex()
-                        superscriptRegex.findAll(currentText).forEach { result ->
-                            val startIndex = result.range.first
-                            val endIndex = result.range.last + 1
-
-                            append(currentText.substring(0, startIndex))
-                            withStyle(
-                                SpanStyle(
-                                    baselineShift = BaselineShift.Superscript,
-                                    fontSize = (14 * 0.75).sp
-                                )
-                            ) {
-                                append(result.groupValues[1])
-                            }
-                            currentText = currentText.substring(endIndex)
-                        }
-
-                        // Process Highlight (==text==)
-                        val highlightRegex = "==(.*?)==".toRegex()
-                        highlightRegex.findAll(currentText).forEach { result ->
-                            val startIndex = result.range.first
-                            val endIndex = result.range.last + 1
-
-                            append(currentText.substring(0, startIndex))
-                            withStyle(
-                                SpanStyle(
-                                    background = Color(0xFF7F52FF).copy(alpha = 0.3f)
-                                )
-                            ) {
-                                append(result.groupValues[1])
-                            }
-                            currentText = currentText.substring(endIndex)
-                        }
-
-                        // Append any remaining text
-                        append(currentText)
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
             }
         }
 
@@ -555,6 +448,7 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
             )
             Spacer(modifier = Modifier.height(4.dp))
         }
+        
 
 
 
@@ -582,7 +476,66 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
                 }
             }
         }
-        else -> {
+
+
+        MarkdownElementTypes.PARAGRAPH -> {
+            val text = node.getTextInNode(originalText).toString()
+
+            // Split text by newlines to identify potential table sections
+            val lines = text.split("\n")
+            var currentText = StringBuilder()
+
+            var i = 0
+            while (i < lines.size) {
+                val line = lines[i].trim()
+
+                // Check for table pattern (at least 2 lines starting with |)
+                if (line.startsWith("|") &&
+                    i + 1 < lines.size &&
+                    lines[i + 1].trim().startsWith("|")) {
+
+                    // Flush any accumulated text before the table
+                    if (currentText.isNotEmpty()) {
+                        Text(
+                            text = processTextFormatting(currentText.toString().trim()),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        currentText.clear()
+                    }
+
+                    // Collect table lines
+                    val tableLines = mutableListOf<String>()
+                    while (i < lines.size && lines[i].trim().startsWith("|")) {
+                        tableLines.add(lines[i].trim())
+                        i++
+                    }
+                    i-- // Adjust index since we'll increment in the loop
+
+                    // Parse and render table
+                    val tableParser = MarkdownTableParser()
+                    tableParser.parseTable(tableLines.joinToString("\n"))?.let { tableData ->
+                        MarkdownTable(tableData)
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                } else {
+                    currentText.append(line).append("\n")
+                }
+                i++
+            }
+
+            // Flush any remaining text
+            if (currentText.isNotEmpty()) {
+                Text(
+                    text = processTextFormatting(currentText.toString().trim()),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+
+        /*else -> {
             // Try to parse as table if the text starts with |
             val nodeText = node.getTextInNode(originalText).toString()
             if (nodeText.trimStart().startsWith("|")) {
@@ -597,14 +550,221 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
                     renderNode(child, originalText)
                 }
             }
-        }
-        /*else -> {
+        }*/
+        else -> {
             node.children.forEach { child ->
                 renderNode(child, originalText)
             }
-        }*/
+        }
     }
 }
 
+private fun processTextWithFormatting(text: String, spanBuilder: AnnotatedString.Builder) {
+    var currentText = text
 
+    // Define formatting rules
+    data class FormattingRule(
+        val regex: Regex,
+        val style: (String) -> SpanStyle
+    )
+
+    val formattingRules = listOf(
+        FormattingRule(
+            "\\*\\*(.*?)\\*\\*".toRegex(),
+            { SpanStyle(fontWeight = FontWeight.Bold) }
+        ),
+        FormattingRule(
+            "\\*(.*?)\\*".toRegex(),
+            { SpanStyle(fontStyle = FontStyle.Italic) }
+        ),
+        FormattingRule(
+            "`(.*?)`".toRegex(),
+            { SpanStyle(
+                fontFamily = FontFamily.Monospace,
+                background = Color.Gray.copy(alpha = 0.3f)
+            ) }
+        ),
+        FormattingRule(
+            "~~(.*?)~~".toRegex(),
+            { SpanStyle(textDecoration = TextDecoration.LineThrough) }
+        ),
+        FormattingRule(
+            "~(.*?)~".toRegex(),
+            { SpanStyle(
+                baselineShift = BaselineShift.Subscript,
+                fontSize = (14 * 0.75).sp
+            ) }
+        ),
+        FormattingRule(
+            "\\^(.*?)\\^".toRegex(),
+            { SpanStyle(
+                baselineShift = BaselineShift.Superscript,
+                fontSize = (14 * 0.75).sp
+            ) }
+        ),
+        FormattingRule(
+            "==(.*?)==".toRegex(),
+            { SpanStyle(background = Color(0xFF7F52FF).copy(alpha = 0.3f)) }
+        )
+    )
+
+    while (currentText.isNotEmpty()) {
+        // Find all matches for all rules
+        val allMatches = formattingRules.flatMap { rule ->
+            rule.regex.findAll(currentText).map { match ->
+                Triple(match, match.range.first, rule)
+            }
+        }
+
+        // If no matches found, append remaining text and break
+        if (allMatches.isEmpty()) {
+            spanBuilder.append(currentText)
+            break
+        }
+
+        // Get the first match based on position
+        val (firstMatch, startIndex, matchedRule) = allMatches.minByOrNull { it.second }!!
+
+        // Append text before the match
+        if (startIndex > 0) {
+            spanBuilder.append(currentText.substring(0, startIndex))
+        }
+
+        // Apply the style to the matched content
+        spanBuilder.withStyle(matchedRule.style(firstMatch.groupValues[1])) {
+            append(firstMatch.groupValues[1])
+        }
+
+        // Move to the remaining text
+        currentText = currentText.substring(firstMatch.range.last + 1)
+    }
+}
+
+private fun splitTextAndTables(text: String): List<TextSegment> {
+    val segments = mutableListOf<TextSegment>()
+    val lines = text.split("\n")
+    var currentText = StringBuilder()
+    var tableLines = mutableListOf<String>()
+    var inTable = false
+
+    fun flushCurrentText() {
+        if (currentText.isNotEmpty()) {
+            segments.add(TextSegment.Regular(currentText.toString().trim()))
+            currentText.clear()
+        }
+    }
+
+    fun flushTableLines() {
+        if (tableLines.isNotEmpty()) {
+            segments.add(TextSegment.Table(tableLines.joinToString("\n")))
+            tableLines.clear()
+        }
+    }
+
+    lines.forEach { line ->
+        val trimmedLine = line.trim()
+
+        when {
+            trimmedLine.startsWith("|") && trimmedLine.endsWith("|") -> {
+                if (!inTable) {
+                    flushCurrentText()
+                    inTable = true
+                }
+                tableLines.add(trimmedLine)
+            }
+            inTable && trimmedLine.contains("|") -> {
+                tableLines.add(trimmedLine)
+                if (!trimmedLine.endsWith("|")) {
+                    flushTableLines()
+                    inTable = false
+                }
+            }
+            else -> {
+                if (inTable) {
+                    flushTableLines()
+                    inTable = false
+                }
+                if (trimmedLine.isNotEmpty()) {
+                    currentText.append(trimmedLine).append("\n")
+                }
+            }
+        }
+    }
+
+    flushCurrentText()
+    if (inTable) {
+        flushTableLines()
+    }
+
+    return segments
+}
+
+private fun processRemainingFormatting(text: String, spanBuilder: AnnotatedString.Builder) {
+    var currentText = text
+
+    // Process Strikethrough (~~text~~)
+    val strikethroughRegex = "~~(.*?)~~".toRegex()
+    currentText = processFormatting(currentText, strikethroughRegex, spanBuilder) { content ->
+        SpanStyle(textDecoration = TextDecoration.LineThrough)
+    }
+
+    // Process Subscript (~text~)
+    val subscriptRegex = "~(.*?)~".toRegex()
+    currentText = processFormatting(currentText, subscriptRegex, spanBuilder) { content ->
+        SpanStyle(
+            baselineShift = BaselineShift.Subscript,
+            fontSize = (14 * 0.75).sp
+        )
+    }
+
+    // Process Superscript (^text^)
+    val superscriptRegex = "\\^(.*?)\\^".toRegex()
+    currentText = processFormatting(currentText, superscriptRegex, spanBuilder) { content ->
+        SpanStyle(
+            baselineShift = BaselineShift.Superscript,
+            fontSize = (14 * 0.75).sp
+        )
+    }
+
+    // Process Highlight (==text==)
+    val highlightRegex = "==(.*?)==".toRegex()
+    currentText = processFormatting(currentText, highlightRegex, spanBuilder) { content ->
+        SpanStyle(background = Color(0xFF7F52FF).copy(alpha = 0.3f))
+    }
+
+    if (currentText.isNotEmpty()) {
+        spanBuilder.append(currentText)
+    }
+}
+
+private fun processFormatting(
+    text: String,
+    regex: Regex,
+    spanBuilder: AnnotatedString.Builder,
+    styleProvider: (String) -> SpanStyle
+): String {
+    var currentText = text
+    var lastIndex = 0
+
+    regex.findAll(currentText).forEach { result ->
+        val startIndex = result.range.first
+        val endIndex = result.range.last + 1
+
+        if (startIndex > lastIndex) {
+            spanBuilder.append(currentText.substring(lastIndex, startIndex))
+        }
+
+        spanBuilder.withStyle(styleProvider(result.groupValues[1])) {
+            append(result.groupValues[1])
+        }
+
+        lastIndex = endIndex
+    }
+
+    return if (lastIndex < currentText.length) {
+        currentText.substring(lastIndex)
+    } else {
+        ""
+    }
+}
 
