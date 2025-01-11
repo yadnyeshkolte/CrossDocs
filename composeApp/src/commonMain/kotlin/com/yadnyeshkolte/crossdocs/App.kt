@@ -42,11 +42,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Checkbox
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.yadnyeshkolte.crossdocs.parser.parseTaskList
+import androidx.compose.ui.text.withStyle
+import com.yadnyeshkolte.crossdocs.parser.TaskListParser
+import com.yadnyeshkolte.crossdocs.ui.components.CodeBlock
+import com.yadnyeshkolte.crossdocs.ui.components.RichTextWithEmoji
 import com.yadnyeshkolte.crossdocs.ui.components.TaskList
-
+import org.intellij.markdown.MarkdownElementTypes
+import org.intellij.markdown.MarkdownTokenTypes
 
 @Composable
 fun App() {
@@ -82,9 +84,8 @@ fun App() {
                 title = { Text("CrossDocs", color = Color.White) },
                 backgroundColor = Color(0xFF7F52FF),
                 actions = {
-                    DropdownMenuButton("File", listOf("New", "Open", "Save", "Close"))
-                    DropdownMenuButton("Edit", listOf("Edit Option 1", "Edit Option 2"))
-                    DropdownMenuButton("View", listOf("View Option 1", "View Option 2"))
+                    DropdownMenuButton("Home", listOf("New", "Open", "Save", "Close"))
+                    DropdownMenuButton("MGuide", listOf("Edit Option 1", "Edit Option 2"))
                     TextButton(onClick = {
                         uriHandler.openUri("https://github.com/yadnyeshkolte/CrossDocs")
                     }) {
@@ -202,6 +203,7 @@ fun DropdownMenuButton(label: String, options: List<String>, onOptionClick: ((St
 @Composable
 private fun processTextFormatting(text: String) = buildAnnotatedString {
     var currentIndex = 0
+
     // Handle strikethrough (~~text~~)
     val strikethroughRegex = "~~(.*?)~~".toRegex()
     strikethroughRegex.findAll(text).forEach { matchResult ->
@@ -275,10 +277,11 @@ private fun TaskListItem(text: String, isChecked: Boolean) {
     ) {
         Checkbox(
             checked = isChecked,
-            onCheckedChange = null, // Read-only checkbox
+            onCheckedChange = null,
             colors = CheckboxDefaults.colors(
                 checkedColor = Color(0xFF7F52FF),
-                uncheckedColor = Color.Gray
+                uncheckedColor = Color(0xFF7F52FF).copy(alpha = 0.6f),
+                checkmarkColor = Color.White
             ),
             modifier = Modifier.padding(end = 8.dp)
         )
@@ -315,52 +318,140 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
         // PARAGRAPHS - Handles basic text with inline formatting
         MarkdownElementTypes.PARAGRAPH -> {
 
+            // Check for task list syntax
             val text = node.getTextInNode(originalText).toString()
 
-            // Check if this contains task list items
-            if (text.trim().startsWith("- [")) {
-                val tasks = parseTaskList(text)
-                if (tasks.isNotEmpty()) {
-                    TaskList(tasks)
-                    return
-                }
-            }
+            // Check for task list syntax
+            val taskListItems = TaskListParser.parseTaskList(text)
+            if (taskListItems != null) {
+                TaskList(taskListItems)
+                Spacer(modifier = Modifier.height(8.dp))
+            } else {
 
-            Text(
-                text = buildAnnotatedString {
-                    node.children.forEach { child ->
-                        when (child.type) {
-                            // Italic text using *text* or _text_
-                            MarkdownElementTypes.EMPH -> {
-                                pushStyle(SpanStyle(fontStyle = FontStyle.Italic))
-                                append(child.getTextInNode(originalText).toString().trim('*', '_'))
-                                pop()
+                Text(
+                    text = buildAnnotatedString {
+                        var currentText = text
+
+                        // Process Bold (**text**)
+                        val boldRegex = "\\*\\*(.*?)\\*\\*".toRegex()
+                        boldRegex.findAll(currentText).forEach { result ->
+                            val startIndex = result.range.first
+                            val endIndex = result.range.last + 1
+
+                            append(currentText.substring(0, startIndex))
+                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                                append(result.groupValues[1])
                             }
-                            MarkdownElementTypes.STRONG -> {
-                                pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
-                                append(child.getTextInNode(originalText).toString()
-                                    .trim('*', '_')
-                                    .trimStart('*', '_')
-                                    .trimEnd('*', '_'))
-                                pop()
-                            }
-                            MarkdownElementTypes.CODE_SPAN -> {
-                                pushStyle(SpanStyle(
-                                    fontFamily = FontFamily.Monospace,
-                                    background = Color.LightGray
-                                ))
-                                append(child.getTextInNode(originalText).toString().trim('`'))
-                                pop()
-                            }
-                            else -> {
-                                append(processTextFormatting(child.getTextInNode(originalText).toString()))
-                            }
+                            currentText = currentText.substring(endIndex)
                         }
-                    }
-                }
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+
+                        // Process Italic (*text*)
+                        val italicRegex = "\\*(.*?)\\*".toRegex()
+                        italicRegex.findAll(currentText).forEach { result ->
+                            val startIndex = result.range.first
+                            val endIndex = result.range.last + 1
+
+                            append(currentText.substring(0, startIndex))
+                            withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                                append(result.groupValues[1])
+                            }
+                            currentText = currentText.substring(endIndex)
+                        }
+
+                        // Process Code (`text`)
+                        val codeRegex = "`(.*?)`".toRegex()
+                        codeRegex.findAll(currentText).forEach { result ->
+                            val startIndex = result.range.first
+                            val endIndex = result.range.last + 1
+
+                            append(currentText.substring(0, startIndex))
+                            withStyle(
+                                SpanStyle(
+                                    fontFamily = FontFamily.Monospace,
+                                    background = Color.Gray.copy(alpha = 0.3f)
+                                )
+                            ) {
+                                append(result.groupValues[1])
+                            }
+                            currentText = currentText.substring(endIndex)
+                        }
+
+                        // Process Strikethrough (~~text~~)
+                        val strikethroughRegex = "~~(.*?)~~".toRegex()
+                        strikethroughRegex.findAll(currentText).forEach { result ->
+                            val startIndex = result.range.first
+                            val endIndex = result.range.last + 1
+
+                            append(currentText.substring(0, startIndex))
+                            withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) {
+                                append(result.groupValues[1])
+                            }
+                            currentText = currentText.substring(endIndex)
+                        }
+
+                        // Process Subscript (~text~)
+                        val subscriptRegex = "~(.*?)~".toRegex()
+                        subscriptRegex.findAll(currentText).forEach { result ->
+                            val startIndex = result.range.first
+                            val endIndex = result.range.last + 1
+
+                            append(currentText.substring(0, startIndex))
+                            withStyle(
+                                SpanStyle(
+                                    baselineShift = BaselineShift.Subscript,
+                                    fontSize = (14 * 0.75).sp
+                                )
+                            ) {
+                                append(result.groupValues[1])
+                            }
+                            currentText = currentText.substring(endIndex)
+                        }
+
+                        // Process Superscript (^text^)
+                        val superscriptRegex = "\\^(.*?)\\^".toRegex()
+                        superscriptRegex.findAll(currentText).forEach { result ->
+                            val startIndex = result.range.first
+                            val endIndex = result.range.last + 1
+
+                            append(currentText.substring(0, startIndex))
+                            withStyle(
+                                SpanStyle(
+                                    baselineShift = BaselineShift.Superscript,
+                                    fontSize = (14 * 0.75).sp
+                                )
+                            ) {
+                                append(result.groupValues[1])
+                            }
+                            currentText = currentText.substring(endIndex)
+                        }
+
+                        // Process Highlight (==text==)
+                        val highlightRegex = "==(.*?)==".toRegex()
+                        highlightRegex.findAll(currentText).forEach { result ->
+                            val startIndex = result.range.first
+                            val endIndex = result.range.last + 1
+
+                            append(currentText.substring(0, startIndex))
+                            withStyle(
+                                SpanStyle(
+                                    background = Color(0xFF7F52FF).copy(alpha = 0.3f)
+                                )
+                            ) {
+                                append(result.groupValues[1])
+                            }
+                            currentText = currentText.substring(endIndex)
+                        }
+
+                        // Append any remaining text
+                        append(currentText)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
         }
+
+
         // LISTS - Handles both ordered (1. 2. 3.) and unordered (• • •) lists
         MarkdownElementTypes.UNORDERED_LIST -> {
             node.children.forEachIndexed { index, listItem ->  // Using `forEachIndexed` for ordered list numbering
@@ -400,7 +491,7 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
         }
         // HEADERS - Handles # and ## headers
         MarkdownElementTypes.ATX_1 -> {  // # Header 1
-            Text(
+            RichTextWithEmoji(
                 text = node.getTextInNode(originalText).toString().trimStart('#').trim(),
                 style = TextStyle(
                     fontSize = 26.sp,  // Largest header
@@ -411,7 +502,7 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
         }
 
         MarkdownElementTypes.ATX_2 -> {  // ## Header 2
-            Text(
+            RichTextWithEmoji(
                 text = node.getTextInNode(originalText).toString().trimStart('#').trim(),
                 style = TextStyle(
                     fontSize = 24.sp,
@@ -422,7 +513,7 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
         }
 
         MarkdownElementTypes.ATX_3 -> {  // ### Header 3
-            Text(
+            RichTextWithEmoji(
                 text = node.getTextInNode(originalText).toString().trimStart('#').trim(),
                 style = TextStyle(
                     fontSize = 22.sp,
@@ -433,7 +524,7 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
         }
 
         MarkdownElementTypes.ATX_4 -> {  // #### Header 4
-            Text(
+            RichTextWithEmoji(
                 text = node.getTextInNode(originalText).toString().trimStart('#').trim(),
                 style = TextStyle(
                     fontSize = 20.sp,  // Adjusted to make it smaller than normal text
@@ -444,7 +535,7 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
         }
 
         MarkdownElementTypes.ATX_5 -> {  // ##### Header 5
-            Text(
+            RichTextWithEmoji(
                 text = node.getTextInNode(originalText).toString().trimStart('#').trim(),
                 style = TextStyle(
                     fontSize = 18.sp,  // Adjusted to make it smaller than normal text
@@ -455,7 +546,7 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
         }
 
         MarkdownElementTypes.ATX_6 -> {  // ###### Header 6
-            Text(
+            RichTextWithEmoji(
                 text = node.getTextInNode(originalText).toString().trimStart('#').trim(),
                 style = TextStyle(
                     fontSize = 16.sp,  // Significantly smaller than normal text
@@ -464,6 +555,13 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
             )
             Spacer(modifier = Modifier.height(4.dp))
         }
+
+
+
+
+
+
+
         // Blockquote: > blockquote Work remaining about left side border
         MarkdownElementTypes.BLOCK_QUOTE -> {
             Box(
@@ -484,8 +582,6 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
                 }
             }
         }
-
-
         else -> {
             // Try to parse as table if the text starts with |
             val nodeText = node.getTextInNode(originalText).toString()
