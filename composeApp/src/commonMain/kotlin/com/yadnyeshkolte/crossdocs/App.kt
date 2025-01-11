@@ -41,19 +41,33 @@ import androidx.compose.ui.text.withStyle
 import com.yadnyeshkolte.crossdocs.parser.DefinitionItem
 import com.yadnyeshkolte.crossdocs.parser.DefinitionParser
 import com.yadnyeshkolte.crossdocs.parser.EmojiParser
+import com.yadnyeshkolte.crossdocs.parser.TaskListParser
 import com.yadnyeshkolte.crossdocs.ui.components.Definition
 import com.yadnyeshkolte.crossdocs.ui.components.RichTextWithEmoji
+import com.yadnyeshkolte.crossdocs.ui.screens.mguide.MGuidePage
+import com.yadnyeshkolte.crossdocs.ui.components.TaskListSection
 import org.intellij.markdown.MarkdownElementTypes
 
+enum class WindowType {
+    HOME,
+    MGUIDE
+}
+
+data class MarkdownExample(
+    val category: String,
+    val description: String,
+    val markdownSyntax: String,
+    val renderedResult: String
+)
 
 @Composable
 fun App() {
     MaterialTheme {
+        var currentWindow by remember { mutableStateOf(WindowType.HOME) }
         var markdownText by remember { mutableStateOf("") }
         var messages by remember { mutableStateOf(listOf<ChatMessage>()) }
         val geminiService = remember { GeminiService() }
         val scope = rememberCoroutineScope()
-
         val uriHandler = LocalUriHandler.current
 
         DisposableEffect(Unit) {
@@ -69,8 +83,16 @@ fun App() {
                 title = { Text("CrossDocs", color = Color.White) },
                 backgroundColor = Color(0xFF7F52FF),
                 actions = {
-                    DropdownMenuButton("Home", listOf("New", "Open", "Save", "Close"))
-                    DropdownMenuButton("MGuide", listOf("Edit Option 1", "Edit Option 2"))
+                    // Modified Home button
+                    TextButton(onClick = { currentWindow = WindowType.HOME }) {
+                        Text("Home", color = Color.White)
+                    }
+
+                    // Modified MGuide button
+                    TextButton(onClick = { currentWindow = WindowType.MGUIDE }) {
+                        Text("MGuide", color = Color.White)
+                    }
+
                     TextButton(onClick = {
                         uriHandler.openUri("https://github.com/yadnyeshkolte/CrossDocs")
                     }) {
@@ -80,106 +102,121 @@ fun App() {
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Row(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                // Left Side: Markdown editor and chat section
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .padding(16.dp)
-                ) {
-                    // Markdown Editor with red border
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f) // Markdown takes up available space until Chat
-                            .padding(8.dp) // Padding inside the border
-                    ) {
-                        Text("Write Markdown Here:")
-                        BasicTextField(
-                            value = markdownText,
-                            onValueChange = { markdownText = it },
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    Color.LightGray.copy(alpha = 0.2f),
-                                    RoundedCornerShape(4.dp)
-                                )
-                                .padding(8.dp)
-                        )
-                    }
-
-                    // Chat Section with purple border
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f) // Chat takes the remaining space
-                            .padding(top = 8.dp)
-                            .border(
-                                width = 2.dp,
-                                color = Color(0xFF7F52FF), // Purple border
-                                shape = RoundedCornerShape(4.dp)
+            // Content based on current window
+            when (currentWindow) {
+                WindowType.HOME -> HomeWindow(
+                    markdownText = markdownText,
+                    onMarkdownTextChange = { markdownText = it },
+                    messages = messages,
+                    onSendMessage = { prompt ->
+                        scope.launch {
+                            messages = messages + ChatMessage(
+                                content = prompt,
+                                isUser = true
                             )
-                            .padding(8.dp) // Padding inside the border
-                    ) {
-                        ChatSection(
-                            messages = messages,
-                            onSendMessage = { prompt ->
-                                scope.launch {
-                                    // Add user message
-                                    messages = messages + ChatMessage(
-                                        content = prompt,
-                                        isUser = true
-                                    )
-
-                                    // Get response from Gemini
-                                    val response = geminiService.generateResponse(prompt)
-                                    messages = messages + ChatMessage(
-                                        content = response,
-                                        isUser = false
-                                    )
-                                }
-                            }
-                        )
-                    }
-                }
-
-                // Right Side: Live Preview
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .padding(16.dp)
-                ) {
-                    Text("Preview:")
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Color.White,
-                                RoundedCornerShape(4.dp)
+                            val response = geminiService.generateResponse(prompt)
+                            messages = messages + ChatMessage(
+                                content = response,
+                                isUser = false
                             )
-                            .border(
-                                1.dp,
-                                Color.LightGray,
-                                RoundedCornerShape(4.dp)
-                            )
-                    ) {
-                        MarkdownRenderer(
-                            markdownText = markdownText,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp)
-                        )
+                        }
                     }
-                }
+                )
+                WindowType.MGUIDE -> MGuidePage()
             }
         }
     }
 }
 
+@Composable
+fun HomeWindow(
+    markdownText: String,
+    onMarkdownTextChange: (String) -> Unit,
+    messages: List<ChatMessage>,
+    onSendMessage: (String) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // Left Side: Markdown editor and chat section
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .padding(16.dp)
+        ) {
+            // Markdown Editor
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(8.dp)
+            ) {
+                Text("Write Markdown Here:")
+                BasicTextField(
+                    value = markdownText,
+                    onValueChange = onMarkdownTextChange,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Color.LightGray.copy(alpha = 0.2f),
+                            RoundedCornerShape(4.dp)
+                        )
+                        .padding(8.dp)
+                )
+            }
+
+            // Chat Section
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(top = 8.dp)
+                    .border(
+                        width = 2.dp,
+                        color = Color(0xFF7F52FF),
+                        shape = RoundedCornerShape(4.dp)
+                    )
+                    .padding(8.dp)
+            ) {
+                ChatSection(
+                    messages = messages,
+                    onSendMessage = onSendMessage
+                )
+            }
+        }
+
+        // Right Side: Live Preview
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .padding(16.dp)
+        ) {
+            Text("Preview:")
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Color.White,
+                        RoundedCornerShape(4.dp)
+                    )
+                    .border(
+                        1.dp,
+                        Color.LightGray,
+                        RoundedCornerShape(4.dp)
+                    )
+            ) {
+                MarkdownRenderer(
+                    markdownText = markdownText,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                )
+            }
+        }
+    }
+}
 
 @Composable
 fun DropdownMenuButton(label: String, options: List<String>, onOptionClick: ((String) -> Unit)? = null) {
@@ -302,7 +339,13 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
         MarkdownElementTypes.PARAGRAPH -> {
             val text = node.getTextInNode(originalText).toString()
 
-            // Check if this is an image
+            // Check if this is an checklist
+            // Check if this is a task list
+            if (TaskListParser.isTaskList(text)) {
+                TaskListParser.parseTaskList(text)?.let { tasks ->
+                    TaskListSection(tasks)
+                }
+            }
 
             // Parse definitions if present
             val definitions = DefinitionParser.parseDefinitions(text)
@@ -485,8 +528,6 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
             CodeBlock(code = code, language = language)
             Spacer(modifier = Modifier.height(16.dp))
         }
-
-
 
         MarkdownElementTypes.PARAGRAPH -> {
             val text = node.getTextInNode(originalText).toString()
