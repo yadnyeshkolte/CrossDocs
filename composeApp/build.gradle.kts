@@ -78,7 +78,8 @@ kotlin {
             implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
             implementation("org.slf4j:slf4j-simple:2.0.9")
-
+            implementation("io.coil-kt.coil3:coil-compose:3.0.4")
+            implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
         }
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)

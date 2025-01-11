@@ -58,22 +58,12 @@ import org.intellij.markdown.MarkdownTokenTypes
 @Composable
 fun App() {
     MaterialTheme {
-        var showContent by remember { mutableStateOf(false) }
         var markdownText by remember { mutableStateOf("") }
-        var renderedHtml by remember { mutableStateOf("") }
-
-        // Chat state
-        var currentPrompt by remember { mutableStateOf("") }
         var messages by remember { mutableStateOf(listOf<ChatMessage>()) }
         val geminiService = remember { GeminiService() }
         val scope = rememberCoroutineScope()
 
-
         val uriHandler = LocalUriHandler.current
-        val normalTextStyle = TextStyle(
-            fontSize = 14.sp,  // or any smaller size you prefer
-            fontWeight = FontWeight.Normal
-        )
 
         DisposableEffect(Unit) {
             onDispose {
@@ -81,9 +71,8 @@ fun App() {
             }
         }
 
-
         Column(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxSize()
         ) {
             TopAppBar(
                 title = { Text("CrossDocs", color = Color.White) },
@@ -100,32 +89,77 @@ fun App() {
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Row(modifier = Modifier.fillMaxSize()) {
-                // Markdown Input
+            Row(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // Left Side: Markdown editor and chat section
                 Column(
                     modifier = Modifier
                         .weight(1f)
+                        .fillMaxHeight()
                         .padding(16.dp)
                 ) {
-                    Text("Write Markdown Here:")
-                    BasicTextField(
-                        value = markdownText,
-                        onValueChange = { markdownText = it },
+                    // Markdown Editor with red border
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(150.dp)
-                            .background(
-                                Color.LightGray.copy(alpha = 0.2f),
-                                RoundedCornerShape(4.dp)
+                            .weight(1f) // Markdown takes up available space until Chat
+                            .padding(8.dp) // Padding inside the border
+                    ) {
+                        Text("Write Markdown Here:")
+                        BasicTextField(
+                            value = markdownText,
+                            onValueChange = { markdownText = it },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Color.LightGray.copy(alpha = 0.2f),
+                                    RoundedCornerShape(4.dp)
+                                )
+                                .padding(8.dp)
+                        )
+                    }
+
+                    // Chat Section with purple border
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f) // Chat takes the remaining space
+                            .padding(top = 8.dp)
+                            .border(
+                                width = 2.dp,
+                                color = Color(0xFF7F52FF), // Purple border
+                                shape = RoundedCornerShape(4.dp)
                             )
-                            .padding(8.dp)
-                    )
+                            .padding(8.dp) // Padding inside the border
+                    ) {
+                        ChatSection(
+                            messages = messages,
+                            onSendMessage = { prompt ->
+                                scope.launch {
+                                    // Add user message
+                                    messages = messages + ChatMessage(
+                                        content = prompt,
+                                        isUser = true
+                                    )
+
+                                    // Get response from Gemini
+                                    val response = geminiService.generateResponse(prompt)
+                                    messages = messages + ChatMessage(
+                                        content = response,
+                                        isUser = false
+                                    )
+                                }
+                            }
+                        )
+                    }
                 }
 
-                // Live Preview
+                // Right Side: Live Preview
                 Column(
                     modifier = Modifier
                         .weight(1f)
+                        .fillMaxHeight()
                         .padding(16.dp)
                 ) {
                     Text("Preview:")
@@ -150,35 +184,11 @@ fun App() {
                         )
                     }
                 }
-
-                // Chat Section (60% of height)
-                ChatSection(
-                    modifier = Modifier
-                        .weight(0.6f)
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    messages = messages,
-                    onSendMessage = { prompt ->
-                        scope.launch {
-                            // Add user message
-                            messages = messages + ChatMessage(
-                                content = prompt,
-                                isUser = true
-                            )
-
-                            // Get response from Gemini
-                            val response = geminiService.generateResponse(prompt)
-                            messages = messages + ChatMessage(
-                                content = response,
-                                isUser = false
-                            )
-                        }
-                    }
-                )
             }
         }
     }
 }
+
 
 @Composable
 fun DropdownMenuButton(label: String, options: List<String>, onOptionClick: ((String) -> Unit)? = null) {
@@ -268,7 +278,7 @@ private fun processTextFormatting(text: String) = buildAnnotatedString {
         currentIndex += matchResult.range.last + 1
     }
 
-        // Append any remaining text
+    // Append any remaining text
     if (currentIndex < text.length) {
         append(text.substring(currentIndex))
     }
@@ -450,7 +460,7 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
             )
             Spacer(modifier = Modifier.height(4.dp))
         }
-        
+
 
 
 
@@ -774,4 +784,3 @@ private fun processFormatting(
         ""
     }
 }
-
