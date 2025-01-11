@@ -355,8 +355,6 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
                 }
             }
         }
-
-
         // LISTS - Handles both ordered (1. 2. 3.) and unordered (• • •) lists
         MarkdownElementTypes.UNORDERED_LIST -> {
             node.children.forEachIndexed { index, listItem ->  // Using `forEachIndexed` for ordered list numbering
@@ -460,14 +458,6 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
             )
             Spacer(modifier = Modifier.height(4.dp))
         }
-
-
-
-
-
-
-
-
         // Blockquote: > blockquote Work remaining about left side border
         MarkdownElementTypes.BLOCK_QUOTE -> {
             Box(
@@ -546,23 +536,6 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-
-        /*else -> {
-            // Try to parse as table if the text starts with |
-            val nodeText = node.getTextInNode(originalText).toString()
-            if (nodeText.trimStart().startsWith("|")) {
-                val tableParser = MarkdownTableParser()
-                tableParser.parseTable(nodeText)?.let { tableData ->
-                    MarkdownTable(tableData)
-                    return
-                }
-            }
-            else{
-                node.children.forEach { child ->
-                    renderNode(child, originalText)
-                }
-            }
-        }*/
         else -> {
             node.children.forEach { child ->
                 renderNode(child, originalText)
@@ -714,73 +687,4 @@ private fun splitTextAndTables(text: String): List<TextSegment> {
     }
 
     return segments
-}
-
-private fun processRemainingFormatting(text: String, spanBuilder: AnnotatedString.Builder) {
-    var currentText = text
-
-    // Process Strikethrough (~~text~~)
-    val strikethroughRegex = "~~(.*?)~~".toRegex()
-    currentText = processFormatting(currentText, strikethroughRegex, spanBuilder) { content ->
-        SpanStyle(textDecoration = TextDecoration.LineThrough)
-    }
-
-    // Process Subscript (~text~)
-    val subscriptRegex = "~(.*?)~".toRegex()
-    currentText = processFormatting(currentText, subscriptRegex, spanBuilder) { content ->
-        SpanStyle(
-            baselineShift = BaselineShift.Subscript,
-            fontSize = (14 * 0.75).sp
-        )
-    }
-
-    // Process Superscript (^text^)
-    val superscriptRegex = "\\^(.*?)\\^".toRegex()
-    currentText = processFormatting(currentText, superscriptRegex, spanBuilder) { content ->
-        SpanStyle(
-            baselineShift = BaselineShift.Superscript,
-            fontSize = (14 * 0.75).sp
-        )
-    }
-
-    // Process Highlight (==text==)
-    val highlightRegex = "==(.*?)==".toRegex()
-    currentText = processFormatting(currentText, highlightRegex, spanBuilder) { content ->
-        SpanStyle(background = Color(0xFF7F52FF).copy(alpha = 0.3f))
-    }
-
-    if (currentText.isNotEmpty()) {
-        spanBuilder.append(currentText)
-    }
-}
-
-private fun processFormatting(
-    text: String,
-    regex: Regex,
-    spanBuilder: AnnotatedString.Builder,
-    styleProvider: (String) -> SpanStyle
-): String {
-    var currentText = text
-    var lastIndex = 0
-
-    regex.findAll(currentText).forEach { result ->
-        val startIndex = result.range.first
-        val endIndex = result.range.last + 1
-
-        if (startIndex > lastIndex) {
-            spanBuilder.append(currentText.substring(lastIndex, startIndex))
-        }
-
-        spanBuilder.withStyle(styleProvider(result.groupValues[1])) {
-            append(result.groupValues[1])
-        }
-
-        lastIndex = endIndex
-    }
-
-    return if (lastIndex < currentText.length) {
-        currentText.substring(lastIndex)
-    } else {
-        ""
-    }
 }
