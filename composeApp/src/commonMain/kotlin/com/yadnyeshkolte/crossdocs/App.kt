@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.sp
 import com.yadnyeshkolte.crossdocs.chat.ChatSection
 import com.yadnyeshkolte.crossdocs.gemini.GeminiService
 import kotlinx.coroutines.launch
-import org.intellij.markdown.*
 import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.ast.getTextInNode
 import org.intellij.markdown.flavours.commonmark.CommonMarkFlavourDescriptor
@@ -33,27 +32,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
-import androidx.compose.ui.Alignment
 import com.yadnyeshkolte.crossdocs.parser.MarkdownTableParser
 import com.yadnyeshkolte.crossdocs.ui.components.MarkdownTable
-import androidx.compose.material.Checkbox
-import androidx.compose.material.CheckboxDefaults
 import androidx.compose.runtime.remember
-import androidx.compose.foundation.layout.*
-import androidx.compose.material.Checkbox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.withStyle
 import com.yadnyeshkolte.crossdocs.parser.DefinitionItem
 import com.yadnyeshkolte.crossdocs.parser.DefinitionParser
 import com.yadnyeshkolte.crossdocs.parser.EmojiParser
-import com.yadnyeshkolte.crossdocs.parser.TaskListParser
-import com.yadnyeshkolte.crossdocs.ui.components.CodeBlock
 import com.yadnyeshkolte.crossdocs.ui.components.Definition
 import com.yadnyeshkolte.crossdocs.ui.components.RichTextWithEmoji
-import com.yadnyeshkolte.crossdocs.ui.components.TaskList
 import org.intellij.markdown.MarkdownElementTypes
-import org.intellij.markdown.MarkdownTokenTypes
+
 
 @Composable
 fun App() {
@@ -479,6 +470,23 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
             }
         }
 
+        MarkdownElementTypes.CODE_FENCE -> {
+            val content = node.getTextInNode(originalText).toString()
+            val lines = content.split("\n")
+
+            // Extract language if specified
+            val language = if (lines.firstOrNull()?.startsWith("```") == true) {
+                lines.first().substring(3).trim()
+            } else null
+
+            // Get code content (excluding fence markers)
+            val code = lines.drop(1).dropLast(1).joinToString("\n")
+
+            CodeBlock(code = code, language = language)
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+
 
         MarkdownElementTypes.PARAGRAPH -> {
             val text = node.getTextInNode(originalText).toString()
@@ -594,6 +602,14 @@ private fun processTextWithFormatting(text: String, spanBuilder: AnnotatedString
         FormattingRule(
             "\\[(.*?)\\]\\((.*?)\\)".toRegex(),  // Matches [text](url) pattern
             { SpanStyle(color = Color(0xFF7F52FF)) }    // Makes the text yellow
+        ),
+        FormattingRule(
+            "```(.*?)```".toRegex(),  // Inline code blocks
+            { SpanStyle(
+                fontFamily = FontFamily.Monospace,
+                background = Color.LightGray.copy(alpha = 0.3f),
+                fontSize = 14.sp
+            ) }
         )
 
     )
@@ -687,4 +703,44 @@ private fun splitTextAndTables(text: String): List<TextSegment> {
     }
 
     return segments
+}
+
+@Composable
+fun CodeBlock(code: String, language: String? = null) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                Color(0xFFF5F5F5),  // Light gray background
+                RoundedCornerShape(4.dp)
+            )
+            .border(
+                width = 1.dp,
+                color = Color.LightGray,
+                shape = RoundedCornerShape(4.dp)
+            )
+            .padding(16.dp)
+    ) {
+        Column {
+            if (language != null) {
+                Text(
+                    text = language,
+                    style = TextStyle(
+                        color = Color.Gray,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
+                    ),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+            Text(
+                text = code.trim(),
+                style = TextStyle(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
+                )
+            )
+        }
+    }
 }
