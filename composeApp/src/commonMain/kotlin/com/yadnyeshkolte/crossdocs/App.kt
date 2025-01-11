@@ -32,10 +32,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Clear
 import com.yadnyeshkolte.crossdocs.parser.MarkdownTableParser
 import com.yadnyeshkolte.crossdocs.ui.components.MarkdownTable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.withStyle
 import com.yadnyeshkolte.crossdocs.parser.DefinitionItem
@@ -52,13 +58,6 @@ enum class WindowType {
     HOME,
     MGUIDE
 }
-
-data class MarkdownExample(
-    val category: String,
-    val description: String,
-    val markdownSyntax: String,
-    val renderedResult: String
-)
 
 @Composable
 fun App() {
@@ -135,6 +134,9 @@ fun HomeWindow(
     messages: List<ChatMessage>,
     onSendMessage: (String) -> Unit
 ) {
+    // State for managing text size
+    var textSize by remember { mutableStateOf(16.sp) }
+
     Row(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -152,10 +154,27 @@ fun HomeWindow(
                     .weight(1f)
                     .padding(8.dp)
             ) {
-                Text("Write Markdown Here:")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Write Markdown Here:")
+                    // Zoom controls
+                    Row {
+                        IconButton(onClick = { textSize = (textSize.value + 2).coerceAtMost(32.0f).sp }) {
+                            Icon(Icons.Default.Add, contentDescription = "Zoom In")
+                        }
+                        IconButton(onClick = { textSize = (textSize.value - 2).coerceAtLeast(12.0f).sp }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Zoom Out")
+                        }
+                    }
+                }
+
                 BasicTextField(
                     value = markdownText,
                     onValueChange = onMarkdownTextChange,
+                    textStyle = TextStyle(fontSize = textSize),
                     modifier = Modifier
                         .fillMaxSize()
                         .background(
@@ -207,41 +226,24 @@ fun HomeWindow(
                         RoundedCornerShape(4.dp)
                     )
             ) {
-                MarkdownRenderer(
-                    markdownText = markdownText,
+                // Scrollable Preview
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(16.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun DropdownMenuButton(label: String, options: List<String>, onOptionClick: ((String) -> Unit)? = null) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Box(modifier = Modifier.padding(horizontal = 8.dp)) {
-        TextButton(onClick = { expanded = !expanded }) {
-            Text(label, color = Color.White)
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            options.forEach { option ->
-                DropdownMenuItem(onClick = {
-                    expanded = false
-                    onOptionClick?.invoke(option)
-                }) {
-                    Text(option)
+                        .padding(8.dp)
+                        .verticalScroll(rememberScrollState()) // Enables scrolling
+                ) {
+                    MarkdownRenderer(
+                        markdownText = markdownText,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                    )
                 }
             }
         }
     }
 }
-
 
 @Composable
 private fun processTextFormatting(text: String) = buildAnnotatedString {
@@ -338,8 +340,6 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
     when (node.type) {
         MarkdownElementTypes.PARAGRAPH -> {
             val text = node.getTextInNode(originalText).toString()
-
-            // Check if this is an checklist
             // Check if this is a task list
             if (TaskListParser.isTaskList(text)) {
                 TaskListParser.parseTaskList(text)?.let { tasks ->
