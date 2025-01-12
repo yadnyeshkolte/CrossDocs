@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -328,6 +329,7 @@ fun AndroidMarkdownEditor(
             textStyle = LocalTextStyle.current.copy(
                 color = MaterialTheme.colors.onBackground
             ),
+            cursorBrush = SolidColor(MaterialTheme.colors.primary), // Add this line for cursor color
             modifier = Modifier
                 .fillMaxSize()
                 .weight(1f)
@@ -336,6 +338,7 @@ fun AndroidMarkdownEditor(
         )
     }
 }
+
 
 @Composable
 fun AndroidPreview(markdownText: String) {

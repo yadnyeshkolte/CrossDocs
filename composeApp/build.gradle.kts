@@ -19,6 +19,7 @@ kotlin {
             jvmTarget.set(JvmTarget.JVM_11)
         }
     }
+    //JVM_21 desktop
     
     listOf(
         iosX64(),
@@ -86,7 +87,6 @@ kotlin {
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
-            implementation(libs.androidx.ui.graphics.desktop)
         }
     }
 }
@@ -105,8 +105,6 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
-            excludes += "/META-INF/DEPENDENCIES"
-
         }
     }
 
