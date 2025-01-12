@@ -71,18 +71,22 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtime.compose)
             implementation(projects.shared)
             implementation("org.jetbrains:markdown:0.3.5")
-            implementation("com.google.cloud:google-cloud-aiplatform:3.29.0")
             implementation("io.ktor:ktor-client-core:2.3.7")
             implementation("io.ktor:ktor-client-cio:2.3.7")
             implementation("io.ktor:ktor-client-content-negotiation:2.3.7")
             implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
             implementation("org.slf4j:slf4j-simple:2.0.9")
+            implementation("org.jetbrains.kotlin:kotlin-stdlib:1.5.21")
+            //implementation("com.google.cloud:google-cloud-aiplatform:3.29.0")
+
+
 
         }
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
+            implementation(libs.androidx.ui.graphics.desktop)
         }
     }
 }
@@ -101,8 +105,11 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/DEPENDENCIES"
+
         }
     }
+
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
@@ -126,6 +133,16 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "com.yadnyeshkolte.crossdocs"
             packageVersion = "1.0.0"
+
+            macOS{
+                iconFile.set(project.file("resources/logo.icns"))
+            }
+            windows{
+                iconFile.set(project.file("resources/logo.ico"))
+            }
+            linux{
+                iconFile.set(project.file("resources/logo.png"))
+            }
         }
     }
 }

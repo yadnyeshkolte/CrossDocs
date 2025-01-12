@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.sp
 import com.yadnyeshkolte.crossdocs.chat.ChatSection
 import com.yadnyeshkolte.crossdocs.gemini.GeminiService
 import kotlinx.coroutines.launch
-import org.intellij.markdown.*
 import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.ast.getTextInNode
 import org.intellij.markdown.flavours.commonmark.CommonMarkFlavourDescriptor
@@ -31,36 +30,71 @@ import org.intellij.markdown.parser.MarkdownParser
 import com.yadnyeshkolte.crossdocs.chat.ChatMessage
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.Checkbox
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.Surface
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Clear
+import com.yadnyeshkolte.crossdocs.parser.MarkdownTableParser
+import com.yadnyeshkolte.crossdocs.ui.components.MarkdownTable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.text.style.TextAlign
-class CustomMarkdownElementType(name: String) : IElementType(name)
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.withStyle
+import com.yadnyeshkolte.crossdocs.parser.DefinitionItem
+import com.yadnyeshkolte.crossdocs.parser.DefinitionParser
+import com.yadnyeshkolte.crossdocs.parser.EmojiParser
+import com.yadnyeshkolte.crossdocs.parser.TaskListParser
+import com.yadnyeshkolte.crossdocs.ui.components.Definition
+import com.yadnyeshkolte.crossdocs.ui.components.RichTextWithEmoji
+import com.yadnyeshkolte.crossdocs.ui.screens.mguide.MGuidePage
+import com.yadnyeshkolte.crossdocs.ui.components.TaskListSection
+import org.intellij.markdown.MarkdownElementTypes
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.runtime.saveable.rememberSaveable
 
+
+enum class WindowType {
+    HOME,
+    MGUIDE
+}
 
 @Composable
 fun App() {
-    MaterialTheme {
-        var showContent by remember { mutableStateOf(false) }
-        var markdownText by remember { mutableStateOf("") }
-        var renderedHtml by remember { mutableStateOf("") }
+    val systemTheme = isSystemInDarkTheme()
 
-        // Chat state
-        var currentPrompt by remember { mutableStateOf("") }
+    // Use rememberSaveable to persist the theme state
+    var isDarkMode by rememberSaveable { mutableStateOf(systemTheme) }
+
+    val colors = if (isDarkMode) {
+        darkColors(
+            primary = Color(0xFF7F52FF),
+            background = Color(0xFF121212),
+            surface = Color(0xFF1E1E1E),
+            onBackground = Color.White,
+            onSurface = Color.White
+        )
+    } else {
+        lightColors(
+            primary = Color(0xFF7F52FF),
+            background = Color.White,
+            surface = Color.White,
+            onBackground = Color.Black,
+            onSurface = Color.Black
+        )
+    }
+
+    MaterialTheme(colors = colors) {
+        var currentWindow by remember { mutableStateOf(WindowType.HOME) }
+        var markdownText by remember { mutableStateOf("") }
         var messages by remember { mutableStateOf(listOf<ChatMessage>()) }
         val geminiService = remember { GeminiService() }
         val scope = rememberCoroutineScope()
-
         val uriHandler = LocalUriHandler.current
-        val normalTextStyle = TextStyle(
-            fontSize = 14.sp,  // or any smaller size you prefer
-            fontWeight = FontWeight.Normal
-        )
 
         DisposableEffect(Unit) {
             onDispose {
@@ -68,17 +102,30 @@ fun App() {
             }
         }
 
-
         Column(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colors.background)
         ) {
             TopAppBar(
                 title = { Text("CrossDocs", color = Color.White) },
-                backgroundColor = Color(0xFF7F52FF),
+                backgroundColor = MaterialTheme.colors.primary,
                 actions = {
-                    DropdownMenuButton("File", listOf("New", "Open", "Save", "Close"))
-                    DropdownMenuButton("Edit", listOf("Edit Option 1", "Edit Option 2"))
-                    DropdownMenuButton("View", listOf("View Option 1", "View Option 2"))
+                    // Theme toggle button
+                    IconButton(onClick = { isDarkMode = !isDarkMode }) {
+                        Icon(
+                            imageVector = if (isDarkMode) Icons.Default.Refresh else Icons.Default.Refresh,
+                            contentDescription = "Toggle theme",
+                            tint = Color.White
+                        )
+                    }
+
+                    TextButton(onClick = { currentWindow = WindowType.HOME }) {
+                        Text("Home", color = Color.White)
+                    }
+                    TextButton(onClick = { currentWindow = WindowType.MGUIDE }) {
+                        Text("MGuide", color = Color.White)
+                    }
                     TextButton(onClick = {
                         uriHandler.openUri("https://github.com/yadnyeshkolte/CrossDocs")
                     }) {
@@ -88,110 +135,159 @@ fun App() {
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Row(modifier = Modifier.fillMaxSize()) {
-                // Markdown Input
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(16.dp)
-                ) {
-                    Text("Write Markdown Here:")
-                    BasicTextField(
-                        value = markdownText,
-                        onValueChange = { markdownText = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(150.dp)
-                            .background(
-                                Color.LightGray.copy(alpha = 0.2f),
-                                RoundedCornerShape(4.dp)
-                            )
-                            .padding(8.dp)
-                    )
-                }
-
-                // Live Preview
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(16.dp)
-                ) {
-                    Text("Preview:")
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Color.White,
-                                RoundedCornerShape(4.dp)
-                            )
-                            .border(
-                                1.dp,
-                                Color.LightGray,
-                                RoundedCornerShape(4.dp)
-                            )
-                    ) {
-                        MarkdownRenderer(
-                            markdownText = markdownText,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp)
-                        )
-                    }
-                }
-
-                // Chat Section (60% of height)
-                ChatSection(
-                    modifier = Modifier
-                        .weight(0.6f)
-                        .fillMaxWidth()
-                        .padding(16.dp),
+            when (currentWindow) {
+                WindowType.HOME -> HomeWindow(
+                    markdownText = markdownText,
+                    onMarkdownTextChange = { markdownText = it },
                     messages = messages,
                     onSendMessage = { prompt ->
                         scope.launch {
-                            // Add user message
                             messages = messages + ChatMessage(
                                 content = prompt,
                                 isUser = true
                             )
-
-                            // Get response from Gemini
                             val response = geminiService.generateResponse(prompt)
                             messages = messages + ChatMessage(
                                 content = response,
                                 isUser = false
                             )
                         }
-                    }
+                    },
+                    isDarkMode = isDarkMode
                 )
+                WindowType.MGUIDE -> MGuidePage()
             }
         }
     }
 }
-
 @Composable
-fun DropdownMenuButton(label: String, options: List<String>, onOptionClick: ((String) -> Unit)? = null) {
-    var expanded by remember { mutableStateOf(false) }
+fun HomeWindow(
+    markdownText: String,
+    onMarkdownTextChange: (String) -> Unit,
+    messages: List<ChatMessage>,
+    onSendMessage: (String) -> Unit,
+    isDarkMode: Boolean
+) {
+    var textSize by remember { mutableStateOf(16.sp) }
 
-    Box(modifier = Modifier.padding(horizontal = 8.dp)) {
-        TextButton(onClick = { expanded = !expanded }) {
-            Text(label, color = Color.White)
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
+    Row(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .padding(16.dp)
         ) {
-            options.forEach { option ->
-                DropdownMenuItem(onClick = {
-                    expanded = false
-                    onOptionClick?.invoke(option)
-                }) {
-                    Text(option)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(8.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "Write Markdown Here:",
+                        color = MaterialTheme.colors.onBackground
+                    )
+                    Row {
+                        IconButton(onClick = { textSize = (textSize.value + 2).coerceAtMost(32.0f).sp }) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "Zoom In",
+                                tint = MaterialTheme.colors.onBackground
+                            )
+                        }
+                        IconButton(onClick = { textSize = (textSize.value - 2).coerceAtLeast(12.0f).sp }) {
+                            Icon(
+                                Icons.Default.Clear,
+                                contentDescription = "Zoom Out",
+                                tint = MaterialTheme.colors.onBackground
+                            )
+                        }
+                    }
+                }
+
+                BasicTextField(
+                    value = markdownText,
+                    onValueChange = onMarkdownTextChange,
+                    textStyle = TextStyle(
+                        fontSize = textSize,
+                        color = MaterialTheme.colors.onBackground
+                    ),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            if (isDarkMode) Color(0xFF2A2A2A) else Color.LightGray.copy(alpha = 0.2f),
+                            RoundedCornerShape(4.dp)
+                        )
+                        .padding(8.dp)
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(top = 8.dp)
+                    .border(
+                        width = 2.dp,
+                        color = MaterialTheme.colors.primary,
+                        shape = RoundedCornerShape(4.dp)
+                    )
+                    .padding(8.dp)
+            ) {
+                ChatSection(
+                    messages = messages,
+                    onSendMessage = onSendMessage
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .padding(16.dp)
+        ) {
+            Text(
+                "Preview:",
+                color = MaterialTheme.colors.onBackground
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        MaterialTheme.colors.surface,
+                        RoundedCornerShape(4.dp)
+                    )
+                    .border(
+                        1.dp,
+                        if (isDarkMode) Color.DarkGray else Color.LightGray,
+                        RoundedCornerShape(4.dp)
+                    )
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    MarkdownRenderer(
+                        markdownText = markdownText,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                    )
                 }
             }
         }
     }
 }
-
 
 @Composable
 private fun processTextFormatting(text: String) = buildAnnotatedString {
@@ -256,14 +352,16 @@ private fun processTextFormatting(text: String) = buildAnnotatedString {
         currentIndex += matchResult.range.last + 1
     }
 
-
-
-
-
-        // Append any remaining text
+    // Append any remaining text
     if (currentIndex < text.length) {
         append(text.substring(currentIndex))
     }
+}
+
+
+sealed class TextSegment {
+    data class Regular(val content: String) : TextSegment()
+    data class Table(val content: String) : TextSegment()
 }
 
 @Composable
@@ -277,46 +375,70 @@ fun MarkdownRenderer(markdownText: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun renderNode(node: ASTNode, originalText: String) {
+private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
+    val normalTextStyle = TextStyle(
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Normal
+    )
+
     when (node.type) {
-        // PARAGRAPHS - Handles basic text with inline formatting
         MarkdownElementTypes.PARAGRAPH -> {
-            Text(
-                text = buildAnnotatedString {
-                    node.children.forEach { child ->
-                        when (child.type) {
-                            // Italic text using *text* or _text_
-                            MarkdownElementTypes.EMPH -> {
-                                pushStyle(SpanStyle(fontStyle = FontStyle.Italic))
-                                append(child.getTextInNode(originalText).toString().trim('*', '_'))
-                                pop()
+            val text = node.getTextInNode(originalText).toString()
+            // Check if this is a task list
+            if (TaskListParser.isTaskList(text)) {
+                TaskListParser.parseTaskList(text)?.let { tasks ->
+                    TaskListSection(tasks)
+                }
+            }
+
+            // Parse definitions if present
+            val definitions = DefinitionParser.parseDefinitions(text)
+            if (definitions.isNotEmpty()) {
+                definitions.forEach { definition ->
+                    Definition(
+                        item = DefinitionItem(
+                            term = EmojiParser.parseEmojis(definition.term),
+                            definition = EmojiParser.parseEmojis(definition.definition)
+                        )
+                    )
+                }
+            } else {
+                // Split the text into segments (table and non-table parts)
+                val segments = splitTextAndTables(text)
+
+                segments.forEach { segment ->
+                    when (segment) {
+                        is TextSegment.Regular -> {
+                            if (segment.content.isNotEmpty()) {
+                                val processedText = EmojiParser.parseEmojis(segment.content)
+                                Text(
+                                    text = buildAnnotatedString {
+                                        processTextWithFormatting(processedText, this)
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = MaterialTheme.colors.onBackground
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
                             }
-                            MarkdownElementTypes.STRONG -> {
-                                pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
-                                append(child.getTextInNode(originalText).toString()
-                                    .trim('*', '_')
-                                    .trimStart('*', '_')
-                                    .trimEnd('*', '_'))
-                                pop()
-                            }
-                            MarkdownElementTypes.CODE_SPAN -> {
-                                pushStyle(SpanStyle(
-                                    fontFamily = FontFamily.Monospace,
-                                    background = Color.LightGray
-                                ))
-                                append(child.getTextInNode(originalText).toString().trim('`'))
-                                pop()
-                            }
-                            else -> {
-                                val text = child.getTextInNode(originalText).toString()
-                                // Use the new processTextFormatting function
-                                append(processTextFormatting(text))
+                        }
+                        is TextSegment.Table -> {
+                            val tableParser = MarkdownTableParser()
+                            tableParser.parseTable(segment.content)?.let { tableData ->
+                                MarkdownTable(
+                                    tableData = tableData,
+                                    textColor = MaterialTheme.colors.onSurface,
+                                    borderColor = if (MaterialTheme.colors.isLight)
+                                        Color.LightGray
+                                    else
+                                        Color.DarkGray,
+                                    backgroundColor = MaterialTheme.colors.surface
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
                             }
                         }
                     }
                 }
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+            }
         }
         // LISTS - Handles both ordered (1. 2. 3.) and unordered (• • •) lists
         MarkdownElementTypes.UNORDERED_LIST -> {
@@ -355,72 +477,177 @@ private fun renderNode(node: ASTNode, originalText: String) {
                 }
             }
         }
-        // HEADERS - Handles # and ## headers
+// HEADERS - Handles # and ## headers
         MarkdownElementTypes.ATX_1 -> {  // # Header 1
-            Text(
+            RichTextWithEmoji(
                 text = node.getTextInNode(originalText).toString().trimStart('#').trim(),
                 style = TextStyle(
                     fontSize = 26.sp,  // Largest header
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colors.onBackground  // Add theme color
                 )
             )
             Spacer(modifier = Modifier.height(16.dp))
         }
 
         MarkdownElementTypes.ATX_2 -> {  // ## Header 2
-            Text(
+            RichTextWithEmoji(
                 text = node.getTextInNode(originalText).toString().trimStart('#').trim(),
                 style = TextStyle(
                     fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colors.onBackground  // Add theme color
                 )
             )
             Spacer(modifier = Modifier.height(12.dp))
         }
 
         MarkdownElementTypes.ATX_3 -> {  // ### Header 3
-            Text(
+            RichTextWithEmoji(
                 text = node.getTextInNode(originalText).toString().trimStart('#').trim(),
                 style = TextStyle(
                     fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colors.onBackground  // Add theme color
                 )
             )
             Spacer(modifier = Modifier.height(10.dp))
         }
 
         MarkdownElementTypes.ATX_4 -> {  // #### Header 4
-            Text(
+            RichTextWithEmoji(
                 text = node.getTextInNode(originalText).toString().trimStart('#').trim(),
                 style = TextStyle(
-                    fontSize = 20.sp,  // Adjusted to make it smaller than normal text
-                    fontWeight = FontWeight.Bold
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colors.onBackground  // Add theme color
                 )
             )
             Spacer(modifier = Modifier.height(8.dp))
         }
 
         MarkdownElementTypes.ATX_5 -> {  // ##### Header 5
-            Text(
+            RichTextWithEmoji(
                 text = node.getTextInNode(originalText).toString().trimStart('#').trim(),
                 style = TextStyle(
-                    fontSize = 18.sp,  // Adjusted to make it smaller than normal text
-                    fontWeight = FontWeight.Bold
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colors.onBackground  // Add theme color
                 )
             )
             Spacer(modifier = Modifier.height(6.dp))
         }
 
         MarkdownElementTypes.ATX_6 -> {  // ###### Header 6
-            Text(
+            RichTextWithEmoji(
                 text = node.getTextInNode(originalText).toString().trimStart('#').trim(),
                 style = TextStyle(
-                    fontSize = 16.sp,  // Significantly smaller than normal text
-                    fontWeight = FontWeight.Bold
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colors.onBackground  // Add theme color
                 )
             )
             Spacer(modifier = Modifier.height(4.dp))
         }
+        // Blockquote: > blockquote Work remaining about left side border
+        MarkdownElementTypes.BLOCK_QUOTE -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .border(
+                        width = 4.dp,
+                        color = MaterialTheme.colors.primary,
+                        shape = RoundedCornerShape(4.dp)
+                    )
+                    .background(
+                        if (MaterialTheme.colors.isLight)
+                            MaterialTheme.colors.surface
+                        else
+                            MaterialTheme.colors.surface.copy(alpha = 0.12f)
+                    )
+                    .padding(8.dp)
+            ) {
+                Column {
+                    node.children.forEach { child ->
+                        renderNode(child, originalText)
+                    }
+                }
+            }
+        }
+
+        MarkdownElementTypes.CODE_FENCE -> {
+            val content = node.getTextInNode(originalText).toString()
+            val lines = content.split("\n")
+
+            // Extract language if specified
+            val language = if (lines.firstOrNull()?.startsWith("```") == true) {
+                lines.first().substring(3).trim()
+            } else null
+
+            // Get code content (excluding fence markers)
+            val code = lines.drop(1).dropLast(1).joinToString("\n")
+
+            CodeBlock(code = code, language = language)
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        MarkdownElementTypes.PARAGRAPH -> {
+            val text = node.getTextInNode(originalText).toString()
+
+            // Split text by newlines to identify potential table sections
+            val lines = text.split("\n")
+            var currentText = StringBuilder()
+
+            var i = 0
+            while (i < lines.size) {
+                val line = lines[i].trim()
+
+                // Check for table pattern (at least 2 lines starting with |)
+                if (line.startsWith("|") &&
+                    i + 1 < lines.size &&
+                    lines[i + 1].trim().startsWith("|")) {
+
+                    // Flush any accumulated text before the table
+                    if (currentText.isNotEmpty()) {
+                        Text(
+                            text = processTextFormatting(currentText.toString().trim()),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        currentText.clear()
+                    }
+
+                    // Collect table lines
+                    val tableLines = mutableListOf<String>()
+                    while (i < lines.size && lines[i].trim().startsWith("|")) {
+                        tableLines.add(lines[i].trim())
+                        i++
+                    }
+                    i-- // Adjust index since we'll increment in the loop
+
+                    // Parse and render table
+                    val tableParser = MarkdownTableParser()
+                    tableParser.parseTable(tableLines.joinToString("\n"))?.let { tableData ->
+                        MarkdownTable(tableData)
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                } else {
+                    currentText.append(line).append("\n")
+                }
+                i++
+            }
+
+            // Flush any remaining text
+            if (currentText.isNotEmpty()) {
+                Text(
+                    text = processTextFormatting(currentText.toString().trim()),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
         else -> {
             node.children.forEach { child ->
                 renderNode(child, originalText)
@@ -429,6 +656,199 @@ private fun renderNode(node: ASTNode, originalText: String) {
     }
 }
 
+@Composable
+private fun processTextWithFormatting(text: String, spanBuilder: AnnotatedString.Builder) {
+    var currentText = text
 
+    // Define formatting rules
+    data class FormattingRule(
+        val regex: Regex,
+        val style: (String) -> SpanStyle
+    )
 
+    val formattingRules = listOf(
+        FormattingRule(
+            "\\*\\*(.*?)\\*\\*".toRegex(),
+            { SpanStyle(fontWeight = FontWeight.Bold) }
+        ),
+        FormattingRule(
+            "\\*(.*?)\\*".toRegex(),
+            { SpanStyle(fontStyle = FontStyle.Italic) }
+        ),
+        FormattingRule(
+            "`(.*?)`".toRegex(),
+            { SpanStyle(
+                fontFamily = FontFamily.Monospace,
+                background = Color.Gray.copy(alpha = 0.3f)
+            ) }
+        ),
+        FormattingRule(
+            "~~(.*?)~~".toRegex(),
+            { SpanStyle(textDecoration = TextDecoration.LineThrough) }
+        ),
+        FormattingRule(
+            "~(.*?)~".toRegex(),
+            { SpanStyle(
+                baselineShift = BaselineShift.Subscript,
+                fontSize = (14 * 0.75).sp
+            ) }
+        ),
+        FormattingRule(
+            "\\^(.*?)\\^".toRegex(),
+            { SpanStyle(
+                baselineShift = BaselineShift.Superscript,
+                fontSize = (14 * 0.75).sp
+            ) }
+        ),
+        FormattingRule(
+            "==(.*?)==".toRegex(),
+            { SpanStyle(background = Color(0xFF7F52FF).copy(alpha = 0.3f)) }
+        ),
+        FormattingRule(
+            "\\[(.*?)\\]\\((.*?)\\)".toRegex(),  // Matches [text](url) pattern
+            { SpanStyle(color = Color(0xFF7F52FF)) }    // Makes the text yellow
+        ),
+        FormattingRule(
+            "```(.*?)```".toRegex(),  // Inline code blocks
+            { SpanStyle(
+                fontFamily = FontFamily.Monospace,
+                background = Color.LightGray.copy(alpha = 0.3f),
+                fontSize = 14.sp
+            ) }
+        )
 
+    )
+
+    while (currentText.isNotEmpty()) {
+        // Find all matches for all rules
+        val allMatches = formattingRules.flatMap { rule ->
+            rule.regex.findAll(currentText).map { match ->
+                Triple(match, match.range.first, rule)
+            }
+        }
+
+        // If no matches found, append remaining text and break
+        if (allMatches.isEmpty()) {
+            spanBuilder.append(currentText)
+            break
+        }
+
+        // Get the first match based on position
+        val (firstMatch, startIndex, matchedRule) = allMatches.minByOrNull { it.second }!!
+
+        // Append text before the match
+        if (startIndex > 0) {
+            spanBuilder.append(currentText.substring(0, startIndex))
+        }
+
+        // Apply the style to the matched content
+        spanBuilder.withStyle(matchedRule.style(firstMatch.groupValues[1])) {
+            append(firstMatch.groupValues[1])
+        }
+
+        // Move to the remaining text
+        currentText = currentText.substring(firstMatch.range.last + 1)
+    }
+}
+
+private fun splitTextAndTables(text: String): List<TextSegment> {
+    val segments = mutableListOf<TextSegment>()
+    val lines = text.split("\n")
+    var currentText = StringBuilder()
+    var tableLines = mutableListOf<String>()
+    var inTable = false
+
+    fun flushCurrentText() {
+        if (currentText.isNotEmpty()) {
+            segments.add(TextSegment.Regular(currentText.toString().trim()))
+            currentText.clear()
+        }
+    }
+
+    fun flushTableLines() {
+        if (tableLines.isNotEmpty()) {
+            segments.add(TextSegment.Table(tableLines.joinToString("\n")))
+            tableLines.clear()
+        }
+    }
+
+    lines.forEach { line ->
+        val trimmedLine = line.trim()
+
+        when {
+            trimmedLine.startsWith("|") && trimmedLine.endsWith("|") -> {
+                if (!inTable) {
+                    flushCurrentText()
+                    inTable = true
+                }
+                tableLines.add(trimmedLine)
+            }
+            inTable && trimmedLine.contains("|") -> {
+                tableLines.add(trimmedLine)
+                if (!trimmedLine.endsWith("|")) {
+                    flushTableLines()
+                    inTable = false
+                }
+            }
+            else -> {
+                if (inTable) {
+                    flushTableLines()
+                    inTable = false
+                }
+                if (trimmedLine.isNotEmpty()) {
+                    currentText.append(trimmedLine).append("\n")
+                }
+            }
+        }
+    }
+
+    flushCurrentText()
+    if (inTable) {
+        flushTableLines()
+    }
+
+    return segments
+}
+
+@Composable
+fun CodeBlock(code: String, language: String? = null) {
+    val isDarkMode = MaterialTheme.colors.isLight.not()
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                if (isDarkMode) Color(0xFF2A2A2A) else Color(0xFFF5F5F5),
+                RoundedCornerShape(4.dp)
+            )
+            .border(
+                width = 1.dp,
+                color = if (isDarkMode) Color.DarkGray else Color.LightGray,
+                shape = RoundedCornerShape(4.dp)
+            )
+            .padding(16.dp)
+    ) {
+        Column {
+            if (language != null) {
+                Text(
+                    text = language,
+                    style = TextStyle(
+                        color = if (isDarkMode) Color.LightGray else Color.Gray,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
+                    ),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+            Text(
+                text = code.trim(),
+                style = TextStyle(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    color = MaterialTheme.colors.onBackground
+                )
+            )
+        }
+    }
+}
