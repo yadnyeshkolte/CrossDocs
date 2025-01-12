@@ -3,6 +3,10 @@ package com.yadnyeshkolte.crossdocs.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.Divider
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -17,32 +21,56 @@ import com.yadnyeshkolte.crossdocs.model.TableData
 
 
 @Composable
-fun MarkdownTable(table: TableData, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
+fun MarkdownTable(
+    tableData: TableData,
+    textColor: Color = MaterialTheme.colors.onSurface,
+    borderColor: Color = if (MaterialTheme.colors.isLight) Color.LightGray else Color.DarkGray,
+    backgroundColor: Color = MaterialTheme.colors.surface
+) {
+    Surface(
+        modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Color.LightGray)
+            .border(1.dp, borderColor, RoundedCornerShape(4.dp)),
+        shape = RoundedCornerShape(4.dp),
+        color = backgroundColor
     ) {
-        // Header row with grey background
-        TableRow(
-            cells = table.headers,
-            alignments = table.alignments,
-            isHeader = true,
-            backgroundColor = Color.LightGray.copy(alpha = 0.3f)
-        )
+        Column {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colors.primary.copy(alpha = 0.1f))
+            ) {
+                tableData.headers.forEach { header ->
+                    Text(
+                        text = header,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(8.dp),
+                        color = textColor,
+                        style = MaterialTheme.typography.subtitle2.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+            }
 
-        // Data rows
-        table.rows.forEach { row ->
-            TableRow(
-                cells = row,
-                alignments = table.alignments,
-                isHeader = false,
-                backgroundColor = Color.White
-            )
+            // Rows
+            tableData.rows.forEach { row ->
+                Divider(color = borderColor)
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    row.forEach { cell ->
+                        Text(
+                            text = cell,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(8.dp),
+                            color = textColor
+                        )
+                    }
+                }
+            }
         }
     }
 }
-
 @Composable
 private fun TableRow(
     cells: List<String>,

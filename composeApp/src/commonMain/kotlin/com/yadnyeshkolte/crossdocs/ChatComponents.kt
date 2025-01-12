@@ -36,13 +36,12 @@ fun ChatSection(
     val coroutineScope = rememberCoroutineScope()
 
     Column(modifier = modifier) {
-        // Chat Messages
         LazyColumn(
             state = listState,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .background(Color.LightGray.copy(alpha = 0.1f), RoundedCornerShape(4.dp))
+                .background(MaterialTheme.colors.surface.copy(alpha = 0.1f), RoundedCornerShape(4.dp))
                 .padding(8.dp)
         ) {
             items(messages) { message ->
@@ -50,14 +49,12 @@ fun ChatSection(
             }
         }
 
-        // Auto-scroll to bottom when new message is added
         LaunchedEffect(messages.size) {
             if (messages.isNotEmpty()) {
                 listState.animateScrollToItem(messages.size - 1)
             }
         }
 
-        // Input Section
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -67,13 +64,20 @@ fun ChatSection(
             OutlinedTextField(
                 value = currentPrompt,
                 onValueChange = { currentPrompt = it },
-                placeholder = { Text("Ask Gemini anything...") },
+                placeholder = {
+                    Text(
+                        "Ask Gemini anything...",
+                        color = MaterialTheme.colors.onSurface.copy(alpha = 0.6f)
+                    )
+                },
                 modifier = Modifier
                     .weight(1f)
                     .padding(end = 8.dp),
                 colors = TextFieldDefaults.outlinedTextFieldColors(
-                    focusedBorderColor = Color(0xFF7F52FF),
-                    unfocusedBorderColor = Color.Gray
+                    focusedBorderColor = MaterialTheme.colors.primary,
+                    unfocusedBorderColor = MaterialTheme.colors.onSurface.copy(alpha = 0.3f),
+                    textColor = MaterialTheme.colors.onSurface,
+                    cursorColor = MaterialTheme.colors.primary
                 )
             )
 
@@ -91,13 +95,14 @@ fun ChatSection(
                 Icon(
                     Icons.Default.Send,
                     contentDescription = "Send",
-                    tint = Color(0xFF7F52FF)
+                    tint = MaterialTheme.colors.primary
                 )
             }
         }
     }
 }
 
+// ChatMessageItem modifications
 @Composable
 fun ChatMessageItem(message: ChatMessage) {
     val clipboardManager = LocalClipboardManager.current
@@ -112,25 +117,23 @@ fun ChatMessageItem(message: ChatMessage) {
         Column(
             modifier = Modifier
                 .background(
-                    if (message.isUser) Color(0xFF7F52FF) else Color.White,
+                    if (message.isUser) MaterialTheme.colors.primary else MaterialTheme.colors.surface,
                     RoundedCornerShape(12.dp)
                 )
                 .border(
                     1.dp,
-                    if (message.isUser) Color.Transparent else Color.LightGray,
+                    if (message.isUser) Color.Transparent else MaterialTheme.colors.onSurface.copy(alpha = 0.12f),
                     RoundedCornerShape(12.dp)
                 )
                 .padding(12.dp)
         ) {
-            // Make text selectable for non-user messages
             if (!message.isUser) {
                 SelectionContainer {
                     Text(
                         text = message.content,
-                        color = Color.Black
+                        color = MaterialTheme.colors.onSurface
                     )
                 }
-                // Add copy button for non-user messages
                 TextButton(
                     onClick = {
                         clipboardManager.setText(AnnotatedString(message.content))
@@ -138,7 +141,7 @@ fun ChatMessageItem(message: ChatMessage) {
                     },
                     modifier = Modifier.align(Alignment.End),
                     colors = ButtonDefaults.textButtonColors(
-                        contentColor = Color(0xFF7F52FF)
+                        contentColor = MaterialTheme.colors.primary
                     )
                 ) {
                     Text("Copy")
@@ -146,31 +149,15 @@ fun ChatMessageItem(message: ChatMessage) {
             } else {
                 Text(
                     text = message.content,
-                    color = Color.White
+                    color = MaterialTheme.colors.onPrimary
                 )
-            }
-        }
-
-        if (showCopyConfirmation) {
-            Snackbar(
-                modifier = Modifier.padding(8.dp),
-                action = {
-                    TextButton(onClick = { showCopyConfirmation = false }) {
-                        Text("Dismiss")
-                    }
-                }
-            ) {
-                Text("Text copied to clipboard")
-            }
-            LaunchedEffect(showCopyConfirmation) {
-                kotlinx.coroutines.delay(2000)
-                showCopyConfirmation = false
             }
         }
 
         Text(
             text = if (message.isUser) "You" else "Gemini",
             style = MaterialTheme.typography.caption,
+            color = MaterialTheme.colors.onBackground,
             modifier = Modifier.padding(horizontal = 4.dp)
         )
     }

@@ -1,6 +1,7 @@
 package com.yadnyeshkolte.crossdocs.ui.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -18,11 +19,15 @@ fun Definition(
     ) {
         Text(
             text = item.term,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            // Add theme-aware color
+            color = MaterialTheme.colors.onBackground
         )
         Text(
             text = item.definition,
-            modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+            modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+            // Add theme-aware color
+            color = MaterialTheme.colors.onBackground
         )
         Spacer(modifier = Modifier.height(8.dp))
     }

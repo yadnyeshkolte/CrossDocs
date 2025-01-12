@@ -122,6 +122,20 @@ val markdownExamples = listOf(
         "Formatted table with headers and cells"
     ),
 
+    MarkdownExample(
+        "Tables",
+        "4x4 Table",
+        """
+| Language |     Type     | Popular Library |   Common Use Case      |
+|:--------:|:-----------:|:---------------:|:-----------------:|
+| Java     |  Compiled    |  Spring Boot    | Backend Development |
+| Kotlin   |  Compiled    |      Ktor       | Android Development |
+| Python   | Interpreted  |     Django      |   Data Science     |
+| C#       |  Compiled    |    ASP.NET      |  Game Development   |
+        """.trimIndent(),
+        "Formatted table with headers and cells"
+    ),
+
     // Super/Subscript
     MarkdownExample(
         "Super/Subscript",
@@ -134,5 +148,37 @@ val markdownExamples = listOf(
         "Subscript",
         "H~2~O",
         "H₂O"
+    ),
+
+    // Emojis
+    MarkdownExample(
+        "Emojis",
+        "Smile Emoji",
+        ":smile:",
+        "😄"
+    ),
+    MarkdownExample(
+        "Emojis",
+        "Thumbs Up Emoji",
+        ":thumbsup:",
+        "👍"
+    ),
+    MarkdownExample(
+        "Emojis",
+        "Heart Emoji",
+        ":heart:",
+        "❤️"
+    ),
+    MarkdownExample(
+        "Emojis",
+        "Fire Emoji",
+        ":fire:",
+        "🔥"
+    ),
+    MarkdownExample(
+        "Emojis",
+        "Rocket Emoji",
+        ":rocket:",
+        "🚀"
     )
 )

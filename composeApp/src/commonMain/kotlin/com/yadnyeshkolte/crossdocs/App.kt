@@ -53,6 +53,10 @@ import com.yadnyeshkolte.crossdocs.ui.components.RichTextWithEmoji
 import com.yadnyeshkolte.crossdocs.ui.screens.mguide.MGuidePage
 import com.yadnyeshkolte.crossdocs.ui.components.TaskListSection
 import org.intellij.markdown.MarkdownElementTypes
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.runtime.saveable.rememberSaveable
+
 
 enum class WindowType {
     HOME,
@@ -61,7 +65,30 @@ enum class WindowType {
 
 @Composable
 fun App() {
-    MaterialTheme {
+    val systemTheme = isSystemInDarkTheme()
+
+    // Use rememberSaveable to persist the theme state
+    var isDarkMode by rememberSaveable { mutableStateOf(systemTheme) }
+
+    val colors = if (isDarkMode) {
+        darkColors(
+            primary = Color(0xFF7F52FF),
+            background = Color(0xFF121212),
+            surface = Color(0xFF1E1E1E),
+            onBackground = Color.White,
+            onSurface = Color.White
+        )
+    } else {
+        lightColors(
+            primary = Color(0xFF7F52FF),
+            background = Color.White,
+            surface = Color.White,
+            onBackground = Color.Black,
+            onSurface = Color.Black
+        )
+    }
+
+    MaterialTheme(colors = colors) {
         var currentWindow by remember { mutableStateOf(WindowType.HOME) }
         var markdownText by remember { mutableStateOf("") }
         var messages by remember { mutableStateOf(listOf<ChatMessage>()) }
@@ -76,22 +103,29 @@ fun App() {
         }
 
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colors.background)
         ) {
             TopAppBar(
                 title = { Text("CrossDocs", color = Color.White) },
-                backgroundColor = Color(0xFF7F52FF),
+                backgroundColor = MaterialTheme.colors.primary,
                 actions = {
-                    // Modified Home button
+                    // Theme toggle button
+                    IconButton(onClick = { isDarkMode = !isDarkMode }) {
+                        Icon(
+                            imageVector = if (isDarkMode) Icons.Default.Refresh else Icons.Default.Refresh,
+                            contentDescription = "Toggle theme",
+                            tint = Color.White
+                        )
+                    }
+
                     TextButton(onClick = { currentWindow = WindowType.HOME }) {
                         Text("Home", color = Color.White)
                     }
-
-                    // Modified MGuide button
                     TextButton(onClick = { currentWindow = WindowType.MGUIDE }) {
                         Text("MGuide", color = Color.White)
                     }
-
                     TextButton(onClick = {
                         uriHandler.openUri("https://github.com/yadnyeshkolte/CrossDocs")
                     }) {
@@ -101,7 +135,6 @@ fun App() {
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Content based on current window
             when (currentWindow) {
                 WindowType.HOME -> HomeWindow(
                     markdownText = markdownText,
@@ -119,35 +152,33 @@ fun App() {
                                 isUser = false
                             )
                         }
-                    }
+                    },
+                    isDarkMode = isDarkMode
                 )
                 WindowType.MGUIDE -> MGuidePage()
             }
         }
     }
 }
-
 @Composable
 fun HomeWindow(
     markdownText: String,
     onMarkdownTextChange: (String) -> Unit,
     messages: List<ChatMessage>,
-    onSendMessage: (String) -> Unit
+    onSendMessage: (String) -> Unit,
+    isDarkMode: Boolean
 ) {
-    // State for managing text size
     var textSize by remember { mutableStateOf(16.sp) }
 
     Row(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Left Side: Markdown editor and chat section
         Column(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
                 .padding(16.dp)
         ) {
-            // Markdown Editor
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -159,14 +190,24 @@ fun HomeWindow(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Write Markdown Here:")
-                    // Zoom controls
+                    Text(
+                        "Write Markdown Here:",
+                        color = MaterialTheme.colors.onBackground
+                    )
                     Row {
                         IconButton(onClick = { textSize = (textSize.value + 2).coerceAtMost(32.0f).sp }) {
-                            Icon(Icons.Default.Add, contentDescription = "Zoom In")
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "Zoom In",
+                                tint = MaterialTheme.colors.onBackground
+                            )
                         }
                         IconButton(onClick = { textSize = (textSize.value - 2).coerceAtLeast(12.0f).sp }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Zoom Out")
+                            Icon(
+                                Icons.Default.Clear,
+                                contentDescription = "Zoom Out",
+                                tint = MaterialTheme.colors.onBackground
+                            )
                         }
                     }
                 }
@@ -174,18 +215,20 @@ fun HomeWindow(
                 BasicTextField(
                     value = markdownText,
                     onValueChange = onMarkdownTextChange,
-                    textStyle = TextStyle(fontSize = textSize),
+                    textStyle = TextStyle(
+                        fontSize = textSize,
+                        color = MaterialTheme.colors.onBackground
+                    ),
                     modifier = Modifier
                         .fillMaxSize()
                         .background(
-                            Color.LightGray.copy(alpha = 0.2f),
+                            if (isDarkMode) Color(0xFF2A2A2A) else Color.LightGray.copy(alpha = 0.2f),
                             RoundedCornerShape(4.dp)
                         )
                         .padding(8.dp)
                 )
             }
 
-            // Chat Section
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -193,7 +236,7 @@ fun HomeWindow(
                     .padding(top = 8.dp)
                     .border(
                         width = 2.dp,
-                        color = Color(0xFF7F52FF),
+                        color = MaterialTheme.colors.primary,
                         shape = RoundedCornerShape(4.dp)
                     )
                     .padding(8.dp)
@@ -205,33 +248,34 @@ fun HomeWindow(
             }
         }
 
-        // Right Side: Live Preview
         Column(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
                 .padding(16.dp)
         ) {
-            Text("Preview:")
+            Text(
+                "Preview:",
+                color = MaterialTheme.colors.onBackground
+            )
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
-                        Color.White,
+                        MaterialTheme.colors.surface,
                         RoundedCornerShape(4.dp)
                     )
                     .border(
                         1.dp,
-                        Color.LightGray,
+                        if (isDarkMode) Color.DarkGray else Color.LightGray,
                         RoundedCornerShape(4.dp)
                     )
             ) {
-                // Scrollable Preview
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(8.dp)
-                        .verticalScroll(rememberScrollState()) // Enables scrolling
+                        .verticalScroll(rememberScrollState())
                 ) {
                     MarkdownRenderer(
                         markdownText = markdownText,
@@ -366,14 +410,13 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
                     when (segment) {
                         is TextSegment.Regular -> {
                             if (segment.content.isNotEmpty()) {
-                                // Process emojis and formatting only once
                                 val processedText = EmojiParser.parseEmojis(segment.content)
-
                                 Text(
                                     text = buildAnnotatedString {
                                         processTextWithFormatting(processedText, this)
                                     },
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = MaterialTheme.colors.onBackground
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                             }
@@ -381,7 +424,15 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
                         is TextSegment.Table -> {
                             val tableParser = MarkdownTableParser()
                             tableParser.parseTable(segment.content)?.let { tableData ->
-                                MarkdownTable(tableData)
+                                MarkdownTable(
+                                    tableData = tableData,
+                                    textColor = MaterialTheme.colors.onSurface,
+                                    borderColor = if (MaterialTheme.colors.isLight)
+                                        Color.LightGray
+                                    else
+                                        Color.DarkGray,
+                                    backgroundColor = MaterialTheme.colors.surface
+                                )
                                 Spacer(modifier = Modifier.height(8.dp))
                             }
                         }
@@ -426,13 +477,14 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
                 }
             }
         }
-        // HEADERS - Handles # and ## headers
+// HEADERS - Handles # and ## headers
         MarkdownElementTypes.ATX_1 -> {  // # Header 1
             RichTextWithEmoji(
                 text = node.getTextInNode(originalText).toString().trimStart('#').trim(),
                 style = TextStyle(
                     fontSize = 26.sp,  // Largest header
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colors.onBackground  // Add theme color
                 )
             )
             Spacer(modifier = Modifier.height(16.dp))
@@ -443,7 +495,8 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
                 text = node.getTextInNode(originalText).toString().trimStart('#').trim(),
                 style = TextStyle(
                     fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colors.onBackground  // Add theme color
                 )
             )
             Spacer(modifier = Modifier.height(12.dp))
@@ -454,7 +507,8 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
                 text = node.getTextInNode(originalText).toString().trimStart('#').trim(),
                 style = TextStyle(
                     fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colors.onBackground  // Add theme color
                 )
             )
             Spacer(modifier = Modifier.height(10.dp))
@@ -464,8 +518,9 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
             RichTextWithEmoji(
                 text = node.getTextInNode(originalText).toString().trimStart('#').trim(),
                 style = TextStyle(
-                    fontSize = 20.sp,  // Adjusted to make it smaller than normal text
-                    fontWeight = FontWeight.Bold
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colors.onBackground  // Add theme color
                 )
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -475,8 +530,9 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
             RichTextWithEmoji(
                 text = node.getTextInNode(originalText).toString().trimStart('#').trim(),
                 style = TextStyle(
-                    fontSize = 18.sp,  // Adjusted to make it smaller than normal text
-                    fontWeight = FontWeight.Bold
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colors.onBackground  // Add theme color
                 )
             )
             Spacer(modifier = Modifier.height(6.dp))
@@ -486,8 +542,9 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
             RichTextWithEmoji(
                 text = node.getTextInNode(originalText).toString().trimStart('#').trim(),
                 style = TextStyle(
-                    fontSize = 16.sp,  // Significantly smaller than normal text
-                    fontWeight = FontWeight.Bold
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colors.onBackground  // Add theme color
                 )
             )
             Spacer(modifier = Modifier.height(4.dp))
@@ -500,8 +557,14 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
                     .padding(8.dp)
                     .border(
                         width = 4.dp,
-                        color = Color(0xFF7F52FF),
+                        color = MaterialTheme.colors.primary,
                         shape = RoundedCornerShape(4.dp)
+                    )
+                    .background(
+                        if (MaterialTheme.colors.isLight)
+                            MaterialTheme.colors.surface
+                        else
+                            MaterialTheme.colors.surface.copy(alpha = 0.12f)
                     )
                     .padding(8.dp)
             ) {
@@ -593,6 +656,7 @@ private fun renderNode(node: ASTNode, originalText: String, level: Int = 0) {
     }
 }
 
+@Composable
 private fun processTextWithFormatting(text: String, spanBuilder: AnnotatedString.Builder) {
     var currentText = text
 
@@ -748,16 +812,18 @@ private fun splitTextAndTables(text: String): List<TextSegment> {
 
 @Composable
 fun CodeBlock(code: String, language: String? = null) {
+    val isDarkMode = MaterialTheme.colors.isLight.not()
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                Color(0xFFF5F5F5),  // Light gray background
+                if (isDarkMode) Color(0xFF2A2A2A) else Color(0xFFF5F5F5),
                 RoundedCornerShape(4.dp)
             )
             .border(
                 width = 1.dp,
-                color = Color.LightGray,
+                color = if (isDarkMode) Color.DarkGray else Color.LightGray,
                 shape = RoundedCornerShape(4.dp)
             )
             .padding(16.dp)
@@ -767,7 +833,7 @@ fun CodeBlock(code: String, language: String? = null) {
                 Text(
                     text = language,
                     style = TextStyle(
-                        color = Color.Gray,
+                        color = if (isDarkMode) Color.LightGray else Color.Gray,
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace
                     ),
@@ -779,7 +845,8 @@ fun CodeBlock(code: String, language: String? = null) {
                 style = TextStyle(
                     fontFamily = FontFamily.Monospace,
                     fontSize = 14.sp,
-                    lineHeight = 20.sp
+                    lineHeight = 20.sp,
+                    color = MaterialTheme.colors.onBackground
                 )
             )
         }

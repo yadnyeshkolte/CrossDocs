@@ -25,7 +25,8 @@ fun ExampleCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
-        elevation = 4.dp
+        elevation = 4.dp,
+        backgroundColor = MaterialTheme.colors.surface
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -33,6 +34,7 @@ fun ExampleCard(
             Text(
                 example.description,
                 style = MaterialTheme.typography.h6,
+                color = MaterialTheme.colors.onSurface,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
@@ -43,13 +45,14 @@ fun ExampleCard(
             ) {
                 Text(
                     "Markdown Syntax:",
-                    style = MaterialTheme.typography.subtitle1.copy(fontWeight = FontWeight.Bold)
+                    style = MaterialTheme.typography.subtitle1.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colors.onSurface
                 )
                 IconButton(onClick = onCopyClick) {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "Copy",
-                        tint = MaterialTheme.colors.primary
+                    Text(
+                        "Copy",
+                        style = MaterialTheme.typography.subtitle1.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colors.primary
                     )
                 }
             }
@@ -57,13 +60,21 @@ fun ExampleCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFFF5F5F5), RoundedCornerShape(4.dp))
-                    .border(1.dp, Color.LightGray, RoundedCornerShape(4.dp))
+                    .background(
+                        if (MaterialTheme.colors.isLight) Color(0xFFF5F5F5) else Color(0xFF2A2A2A),
+                        RoundedCornerShape(4.dp)
+                    )
+                    .border(
+                        1.dp,
+                        if (MaterialTheme.colors.isLight) Color.LightGray else Color.DarkGray,
+                        RoundedCornerShape(4.dp)
+                    )
                     .padding(8.dp)
             ) {
                 Text(
                     example.markdownSyntax,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    color = MaterialTheme.colors.onSurface
                 )
             }
 
@@ -72,14 +83,22 @@ fun ExampleCard(
             Text(
                 "Rendered Result:",
                 style = MaterialTheme.typography.subtitle1.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colors.onSurface,
                 modifier = Modifier.padding(vertical = 8.dp)
             )
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White, RoundedCornerShape(4.dp))
-                    .border(1.dp, Color.LightGray, RoundedCornerShape(4.dp))
+                    .background(
+                        MaterialTheme.colors.surface,
+                        RoundedCornerShape(4.dp)
+                    )
+                    .border(
+                        1.dp,
+                        if (MaterialTheme.colors.isLight) Color.LightGray else Color.DarkGray,
+                        RoundedCornerShape(4.dp)
+                    )
                     .padding(8.dp)
             ) {
                 MarkdownRenderer(
