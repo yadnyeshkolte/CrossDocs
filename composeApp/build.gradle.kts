@@ -77,7 +77,6 @@ kotlin {
             implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
             implementation("org.slf4j:slf4j-simple:2.0.9")
-            implementation("org.jetbrains.skiko:skiko:0.7.85")
             implementation("org.jetbrains.kotlin:kotlin-stdlib:1.5.21")
             //implementation("com.google.cloud:google-cloud-aiplatform:3.29.0")
 
