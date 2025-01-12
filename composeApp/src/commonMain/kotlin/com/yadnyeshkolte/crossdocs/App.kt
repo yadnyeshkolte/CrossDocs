@@ -56,6 +56,7 @@ import org.intellij.markdown.MarkdownElementTypes
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.graphics.SolidColor
 
 
 enum class WindowType {
@@ -219,6 +220,7 @@ fun HomeWindow(
                         fontSize = textSize,
                         color = MaterialTheme.colors.onBackground
                     ),
+                    cursorBrush = SolidColor(MaterialTheme.colors.primary), // Add this line for cursor color
                     modifier = Modifier
                         .fillMaxSize()
                         .background(
