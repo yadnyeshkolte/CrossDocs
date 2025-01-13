@@ -55,7 +55,7 @@ What makes CrossDocs special is an understanding of how modern development flows
 
 #### Android Recording
 
-![Android View](resources/android-view.mp4)
+![Android View](resources/android.mp4)
 
 #### Desktop Recording
 
