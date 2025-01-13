@@ -1,0 +1,5 @@
+#!/bin/bash
+HERE="$(dirname "$(readlink -f "${0}")")"
+export JAVA_HOME=${HERE}/runtime
+export PATH="${HERE}/runtime/bin:${PATH}"
+java -jar "${HERE}/CrossDocs.jar" "$@"

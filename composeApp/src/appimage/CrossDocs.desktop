@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=CrossDocs
+Comment=Cross-platform Markdown Editor
+Exec=CrossDocs
+Icon=crossdocs
+Categories=Development;Office;TextEditor;
+Terminal=false
