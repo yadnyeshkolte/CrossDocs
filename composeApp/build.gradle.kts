@@ -80,9 +80,6 @@ kotlin {
             implementation("org.slf4j:slf4j-simple:2.0.9")
             implementation("org.jetbrains.kotlin:kotlin-stdlib:1.5.21")
             //implementation("com.google.cloud:google-cloud-aiplatform:3.29.0")
-
-
-
         }
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
