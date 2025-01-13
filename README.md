@@ -53,13 +53,13 @@ What makes CrossDocs special is an understanding of how modern development flows
 ##### Desktop
 ![Desktop Screen](https://github.com/yadnyeshkolte/CrossDocs/blob/main/resources/desktop%20screen.png?raw=true)
 
-#### Android Recording
-
-![Android View](resources/android.mp4)
-
 #### Desktop Recording
 
 [Desktop.webm](https://github.com/user-attachments/assets/bbc3c7d2-2838-408d-903b-49654f05649f)
+
+#### Android Recording
+
+[Android.mp4](https://github.com/user-attachments/assets/f940446b-8e59-4ef0-aeb7-bd87c160c9a3)
 
 ---
 
