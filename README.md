@@ -55,7 +55,7 @@ What makes CrossDocs special is an understanding of how modern development flows
 
 #### Desktop Recording
 
-[Desktop.webm](https://github.com/user-attachments/assets/bbc3c7d2-2838-408d-903b-49654f05649f)
+[Desktop.webm](https://github.com/user-attachments/assets/493a54af-261a-4e38-abb4-6bad599bf94f)
 
 #### Android Recording
 
