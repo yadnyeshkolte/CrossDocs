@@ -10,7 +10,7 @@
 
 The vision behind CrossDocs is to make documentation a joy rather than a chore. By bringing together the power of real-time preview, AI assistance, and cross-platform compatibility, it's a tool that adapts to your workflow, not the other way around. Whether you're creating technical documentation, taking notes, or writing a blog post, CrossDocs gives you a distraction-free environment to focus on what matters most: your content.
 
-What makes CrossDocs special is an understanding of how modern development flows work. This application is made with Compose Multiplatform. It has native performance on any platform while also providing a smooth user experience across all of them. The integration of Google's Gemini AI is no feature checkbox-it's a considered implementation that assists you in writing better, faster, and with more accuracy.
+What makes CrossDocs special is an understanding of how modern development flows work. This application is made with Compose Multiplatform. It has native performance on any platform while also providing a smooth user experience across all of them. The integration of Google's Gemini AI is no feature checkbox it's a considered implementation that assists you in writing better, faster, and with more accuracy.
 
 ## ✨ Features
 
