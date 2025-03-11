@@ -1,0 +1,81 @@
+│   └── src
+│       ├── androidMain
+│       │   ├── AndroidManifest.xml
+│       │   ├── ic_launcher-playstore.png
+│       │   ├── kotlin
+│       │   │   └── com
+│       │   │       └── yadnyeshkolte
+│       │   │           └── crossdocs
+│       │   │               ├── MainActivity.kt
+│       │   │               └── platform
+│       │   │                   ├── AndroidApp.kt
+│       │   │                   └── PlatformApp.kt
+│       ├── commonMain
+│       │   ├── composeResources
+│       │   │   └── drawable
+│       │   │       └── compose-multiplatform.xml
+│       │   └── kotlin
+│       │       └── com
+│       │           └── yadnyeshkolte
+│       │               └── crossdocs
+│       │                   ├── App.kt
+│       │                   ├── ChatComponents.kt
+│       │                   ├── GeminiConfig.kt
+│       │                   ├── GeminiModels.kt
+│       │                   ├── GeminiService.kt
+│       │                   ├── model
+│       │                   │   ├── EmojiToken.kt
+│       │                   │   └── TableData.kt
+│       │                   ├── parser
+│       │                   │   ├── DefinitionParser.kt
+│       │                   │   ├── EmojiParser.kt
+│       │                   │   ├── FootnoteParser.kt
+│       │                   │   ├── MarkdownTableParser.kt
+│       │                   │   └── TaskListParser.kt
+│       │                   ├── platform
+│       │                   │   └── PlatformApp.kt
+│       │                   └── ui
+│       │                       ├── Commented.kt
+│       │                       ├── components
+│       │                       │   ├── CodeBlock.kt
+│       │                       │   ├── Definition.kt
+│       │                       │   ├── EmojiView.kt
+│       │                       │   ├── FootnoteComponent.kt
+│       │                       │   ├── MarkdownTable.kt
+│       │                       │   ├── RichTextWithEmoji.kt
+│       │                       │   └── TaskList.kt
+│       │                       ├── MarkdownRenderer.kt
+│       │                       └── screens
+│       │                           └── mguide
+│       │                               ├── components
+│       │                               │   └── ExampleCard.kt
+│       │                               ├── data
+│       │                               │   └── MarkdownExamples.kt
+│       │                               ├── MGuidePage.kt
+│       │                               └── model
+│       │                                   └── MarkdownExample.kt
+│       ├── desktopMain
+│       │   └── kotlin
+│       │       └── com
+│       │           └── yadnyeshkolte
+│       │               └── crossdocs
+│       │                   └── main.kt
+│       ├── iosMain
+│       │   └── kotlin
+│       │       └── com
+│       │           └── yadnyeshkolte
+│       │               └── crossdocs
+│       │                   ├── MainViewController.kt
+│       │                   └── platform
+│       │                       ├── IOSApp.kt
+│       │                       └── PlatformApp.kt
+│       └── wasmJsMain
+│           ├── kotlin
+│           │   └── com
+│           │       └── yadnyeshkolte
+│           │           └── crossdocs
+│           │               └── main.kt
+│           └── resources
+│               ├── index.html
+│               └── styles.css
+
